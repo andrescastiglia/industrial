@@ -1,0 +1,169 @@
+@startuml der.plantuml
+
+hide circle
+skinparam linetype ortho
+
+entity "Tipo_Componente" as TC {
+  *tipo_componente_id : SERIAL <<PK>>
+  --
+  nombre_tipo : VARCHAR(100)
+}
+
+entity "Materia_Prima" as MP {
+  *materia_prima_id : SERIAL <<PK>>
+  --
+  nombre : VARCHAR(255)
+  descripcion : TEXT
+  referencia_proveedor : VARCHAR(255)
+  unidad_medida : VARCHAR(50)
+  stock_actual : DECIMAL(10,2)
+  punto_pedido : DECIMAL(10,2)
+  tiempo_entrega_dias : INT
+  longitud_estandar_m : DECIMAL(10,2)
+  color : VARCHAR(100)
+  id_tipo_componente : INT <<FK>>
+}
+
+entity "Productos" as P {
+  *producto_id : SERIAL <<PK>>
+  --
+  nombre_modelo : VARCHAR(100)
+  descripcion : TEXT
+  ancho : DECIMAL(10,2)
+  alto : DECIMAL(10,2)
+  color : VARCHAR(100)
+  tipo_accionamiento : VARCHAR(255)
+}
+
+entity "Componentes_Producto" as CP {
+  *producto_id : INT <<FK,PK>>
+  *materia_prima_id : INT <<FK,PK>>
+  --
+  cantidad_necesaria : DECIMAL(10,2)
+  angulo_corte : VARCHAR(50)
+}
+
+entity "Clientes" as C {
+  *cliente_id : SERIAL <<PK>>
+  --
+  nombre : VARCHAR(255)
+  contacto : VARCHAR(255)
+  direccion : TEXT
+  telefono : VARCHAR(50)
+  email : VARCHAR(255)
+}
+
+entity "Ordenes_Venta" as OV {
+  *orden_venta_id : SERIAL <<PK>>
+  --
+  cliente_id : INT <<FK>>
+  fecha_pedido : DATE
+  fecha_entrega_estimada : DATE
+  fecha_entrega_real : DATE
+  estado : VARCHAR(50)
+  total_venta : DECIMAL(12,2)
+}
+
+entity "Detalle_Orden_Venta" as DOV {
+  *detalle_orden_venta_id : SERIAL <<PK>>
+  --
+  orden_venta_id : INT <<FK>>
+  producto_id : INT <<FK>>
+  cantidad : INT
+  precio_unitario_venta : DECIMAL(10,2)
+}
+
+entity "Ordenes_Produccion" as OP {
+  *orden_produccion_id : SERIAL <<PK>>
+  --
+  orden_venta_id : INT <<FK>>
+  producto_id : INT <<FK>>
+  cantidad_a_producir : INT
+  fecha_creacion : TIMESTAMP
+  fecha_inicio : TIMESTAMP
+  fecha_fin_estimada : TIMESTAMP
+  fecha_fin_real : TIMESTAMP
+  estado : VARCHAR(50)
+}
+
+entity "Consumo_Materia_Prima_Produccion" as CMPP {
+  *consumo_id : SERIAL <<PK>>
+  --
+  orden_produccion_id : INT <<FK>>
+  materia_prima_id : INT <<FK>>
+  cantidad_requerida : DECIMAL(10,2)
+  cantidad_usada : DECIMAL(10,2)
+  merma_calculada : DECIMAL(10,2)
+  fecha_registro : TIMESTAMP
+}
+
+entity "Proveedores" as PR {
+  *proveedor_id : SERIAL <<PK>>
+  --
+  nombre : VARCHAR(255)
+  contacto : VARCHAR(255)
+  direccion : TEXT
+  telefono : VARCHAR(50)
+  email : VARCHAR(255)
+  cuit : VARCHAR(50)
+}
+
+entity "Compras" as COM {
+  *compra_id : SERIAL <<PK>>
+  --
+  proveedor_id : INT <<FK>>
+  fecha_pedido : DATE
+  fecha_recepcion_estimada : DATE
+  fecha_recepcion_real : DATE
+  estado : VARCHAR(50)
+  total_compra : DECIMAL(12,2)
+  cotizacion_ref : VARCHAR(100)
+}
+
+entity "Detalle_Compra_Materia_Prima" as DCMP {
+  *detalle_compra_id : SERIAL <<PK>>
+  --
+  compra_id : INT <<FK>>
+  materia_prima_id : INT <<FK>>
+  cantidad_pedida : DECIMAL(10,2)
+  cantidad_recibida : DECIMAL(10,2)
+  unidad_medida : VARCHAR(50)
+}
+
+entity "Operarios" as O {
+  *operario_id : SERIAL <<PK>>
+  --
+  nombre : VARCHAR(100)
+  apellido : VARCHAR(100)
+  rol : VARCHAR(100)
+}
+
+entity "Etapas_Produccion" as EP {
+  *etapa_id : SERIAL <<PK>>
+  --
+  orden_produccion_id : INT <<FK>>
+  nombre_etapa : VARCHAR(100)
+  fecha_inicio : TIMESTAMP
+  fecha_fin : TIMESTAMP
+  operario_id : INT <<FK>>
+  estado : VARCHAR(50)
+}
+
+' Relaciones
+MP }|--|| TC : pertence_a
+CP }|--|| P : pertenece_producto
+CP }|--|| MP : usa_materia_prima
+OV }|--|| C : hace_pedido
+DOV }|--|| OV : detalla
+DOV }|--|| P : incluye
+OP }|--|| OV : produce_para
+OP }|--|| P : produce
+CMPP }|--|| OP : consume_en
+CMPP }|--|| MP : consume
+COM }|--|| PR : pedido_a
+DCMP }|--|| COM : detalla_compra
+DCMP }|--|| MP : compra_materia_prima
+EP }|--|| OP : etapa_de
+EP }|--|| O : asigna_a
+
+@enduml
