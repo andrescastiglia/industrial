@@ -5,8 +5,52 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Maese",
-  description: "Sistema de gestión industrial",
-  generator: "Andres Castiglia",
+  description: "Sistema de Producción",
+  keywords: ["industrial", "manufactura", "producción", "inventario"],
+  authors: [{ name: "Andrés Castiglia" }],
+  creator: "Andrés Castiglia",
+  publisher: "Maese",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  verification: {
+    google: "google-site-verification-code",
+  },
+  openGraph: {
+    title: "Maese - Sistema de Gestión Industrial",
+    description: "Sistema integral para la gestión de procesos industriales",
+    url: "https://maese.com.ar",
+    siteName: "Maese",
+    images: [
+      {
+        url: "https://maese.com.ar/og-image.jpg",
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: "es_AR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Maese - Sistema de Gestión Industrial",
+    description: "Sistema integral para la gestión de procesos industriales",
+    images: ["https://maese.com.ar/twitter-image.jpg"],
+  },
 };
 
 export default function RootLayout({
@@ -15,16 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-}
-        `}</style>
-      </head>
+    <html lang="es" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body>{children}</body>
     </html>
   );

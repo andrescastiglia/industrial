@@ -59,7 +59,7 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="password"
+                placeholder="Contraseña"
                 required
               />
             </div>
