@@ -1,9 +1,10 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react";
+import { apiClient } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -11,70 +12,41 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Edit, Trash2, Search, Users, Shield, Wrench, User } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  Users,
+  Shield,
+  Wrench,
+  User,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface Operario {
-  operario_id: number
-  nombre: string
-  apellido: string
-  rol: string
+  operario_id: number;
+  nombre: string;
+  apellido: string;
+  rol: string;
 }
-
-const operariosIniciales: Operario[] = [
-  {
-    operario_id: 1,
-    nombre: "Carlos",
-    apellido: "Mendoza",
-    rol: "Operador de Máquina",
-  },
-  {
-    operario_id: 2,
-    nombre: "María",
-    apellido: "García",
-    rol: "Supervisora",
-  },
-  {
-    operario_id: 3,
-    nombre: "José",
-    apellido: "Rodríguez",
-    rol: "Técnico de Mantenimiento",
-  },
-  {
-    operario_id: 4,
-    nombre: "Ana",
-    apellido: "López",
-    rol: "Operadora de Línea",
-  },
-  {
-    operario_id: 5,
-    nombre: "Roberto",
-    apellido: "Silva",
-    rol: "Jefe de Turno",
-  },
-  {
-    operario_id: 6,
-    nombre: "Carmen",
-    apellido: "Torres",
-    rol: "Control de Calidad",
-  },
-  {
-    operario_id: 7,
-    nombre: "Luis",
-    apellido: "Vargas",
-    rol: "Soldador",
-  },
-  {
-    operario_id: 8,
-    nombre: "Patricia",
-    apellido: "Morales",
-    rol: "Almacenera",
-  },
-]
 
 const rolesDisponibles = [
   "Operador de Máquina",
@@ -87,112 +59,139 @@ const rolesDisponibles = [
   "Soldador",
   "Electricista",
   "Mecánico",
-]
+];
 
-export default function OperariosPage() {
-  const [operarios, setOperarios] = useState<Operario[]>(operariosIniciales)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingOperario, setEditingOperario] = useState<Operario | null>(null)
+  const [operarios, setOperarios] = useState<Operario[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const fetchOperarios = async () => {
+      setLoading(true);
+      try {
+        const data = await apiClient.getOperarios();
+        setOperarios(data as Operario[]);
+      } catch (err) {
+        setError("Error al cargar operarios");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOperarios();
+  }, []);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingOperario, setEditingOperario] = useState<Operario | null>(null);
 
   const filteredOperarios = operarios.filter(
     (operario) =>
       operario.operario_id.toString().includes(searchTerm.toLowerCase()) ||
       operario.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       operario.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      operario.rol.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+      operario.rol.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const handleSubmit = (formData: FormData) => {
-    const newOperario: Operario = {
-      operario_id: editingOperario?.operario_id || Date.now(),
+  const handleSubmit = async (formData: FormData) => {
+    const operarioData = {
       nombre: formData.get("nombre") as string,
       apellido: formData.get("apellido") as string,
       rol: formData.get("rol") as string,
+    };
+    try {
+      if (editingOperario) {
+        await apiClient.updateOperario(editingOperario.operario_id, operarioData);
+      } else {
+        await apiClient.createOperario(operarioData);
+      }
+      const data = await apiClient.getOperarios();
+      setOperarios(data as Operario[]);
+    } catch (err) {
+      setError("Error al guardar operario");
     }
-
-    if (editingOperario) {
-      setOperarios(
-        operarios.map((operario) => (operario.operario_id === editingOperario.operario_id ? newOperario : operario)),
-      )
-    } else {
-      setOperarios([...operarios, newOperario])
-    }
-
-    setIsDialogOpen(false)
-    setEditingOperario(null)
-  }
+    setIsDialogOpen(false);
+    setEditingOperario(null);
+  };
 
   const handleEdit = (operario: Operario) => {
-    setEditingOperario(operario)
-    setIsDialogOpen(true)
-  }
+    setEditingOperario(operario);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (operario_id: number) => {
-    setOperarios(operarios.filter((operario) => operario.operario_id !== operario_id))
-  }
+  const handleDelete = async (operario_id: number) => {
+    try {
+      await apiClient.deleteOperario(operario_id);
+      const data = await apiClient.getOperarios();
+      setOperarios(data as Operario[]);
+    } catch (err) {
+      setError("Error al eliminar operario");
+    }
+  };
 
   const resetForm = () => {
-    setEditingOperario(null)
-    setIsDialogOpen(false)
-  }
+    setEditingOperario(null);
+    setIsDialogOpen(false);
+  };
 
   const getInitials = (nombre: string, apellido: string) => {
-    return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
-  }
+    return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase();
+  };
 
   const getRolIcon = (rol: string) => {
     if (rol.includes("Supervisor") || rol.includes("Jefe")) {
-      return <Shield className="h-4 w-4" />
+      return <Shield className="h-4 w-4" />;
     }
     if (rol.includes("Técnico") || rol.includes("Mantenimiento")) {
-      return <Wrench className="h-4 w-4" />
+      return <Wrench className="h-4 w-4" />;
     }
-    return <User className="h-4 w-4" />
-  }
+    return <User className="h-4 w-4" />;
+  };
 
   const getRolColor = (rol: string) => {
     if (rol.includes("Supervisor") || rol.includes("Jefe")) {
-      return "bg-purple-100 text-purple-800"
+      return "bg-purple-100 text-purple-800";
     }
     if (rol.includes("Técnico") || rol.includes("Mantenimiento")) {
-      return "bg-blue-100 text-blue-800"
+      return "bg-blue-100 text-blue-800";
     }
     if (rol.includes("Control") || rol.includes("Calidad")) {
-      return "bg-green-100 text-green-800"
+      return "bg-green-100 text-green-800";
     }
-    return "bg-gray-100 text-gray-800"
-  }
+    return "bg-gray-100 text-gray-800";
+  };
 
   const contarPorTipo = (tipo: string) => {
     return operarios.filter((operario) => {
-      const rol = operario.rol.toLowerCase()
+      const rol = operario.rol.toLowerCase();
       switch (tipo) {
         case "supervisores":
-          return rol.includes("supervisor") || rol.includes("jefe")
+          return rol.includes("supervisor") || rol.includes("jefe");
         case "tecnicos":
           return (
             rol.includes("técnico") ||
             rol.includes("mantenimiento") ||
             rol.includes("electricista") ||
             rol.includes("mecánico")
-          )
+          );
         case "operadores":
           return (
-            rol.includes("operador") || rol.includes("operadora") || rol.includes("soldador") || rol.includes("almacen")
-          )
+            rol.includes("operador") ||
+            rol.includes("operadora") ||
+            rol.includes("soldador") ||
+            rol.includes("almacen")
+          );
         default:
-          return false
+          return false;
       }
-    }).length
-  }
+    }).length;
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Operarios</h2>
-          <p className="text-muted-foreground">Gestión del personal operativo</p>
+          <p className="text-muted-foreground">
+            Gestión del personal operativo
+          </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -203,9 +202,13 @@ export default function OperariosPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>{editingOperario ? "Editar Operario" : "Nuevo Operario"}</DialogTitle>
+              <DialogTitle>
+                {editingOperario ? "Editar Operario" : "Nuevo Operario"}
+              </DialogTitle>
               <DialogDescription>
-                {editingOperario ? "Modifica los datos del operario" : "Completa los datos del nuevo operario"}
+                {editingOperario
+                  ? "Modifica los datos del operario"
+                  : "Completa los datos del nuevo operario"}
               </DialogDescription>
             </DialogHeader>
             <form action={handleSubmit} className="space-y-4">
@@ -249,7 +252,9 @@ export default function OperariosPage() {
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancelar
                 </Button>
-                <Button type="submit">{editingOperario ? "Actualizar" : "Crear"}</Button>
+                <Button type="submit">
+                  {editingOperario ? "Actualizar" : "Crear"}
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -259,7 +264,9 @@ export default function OperariosPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Operarios</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Operarios
+            </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -272,7 +279,9 @@ export default function OperariosPage() {
             <Shield className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{contarPorTipo("supervisores")}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {contarPorTipo("supervisores")}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -281,7 +290,9 @@ export default function OperariosPage() {
             <Wrench className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{contarPorTipo("tecnicos")}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {contarPorTipo("tecnicos")}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -290,7 +301,9 @@ export default function OperariosPage() {
             <User className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{contarPorTipo("operadores")}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {contarPorTipo("operadores")}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -313,17 +326,21 @@ export default function OperariosPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
+                <TableHead className="hidden md:table-cell">ID</TableHead>
                 <TableHead>Operario</TableHead>
-                <TableHead>Nombre Completo</TableHead>
-                <TableHead>Rol</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Nombre Completo
+                </TableHead>
+                <TableHead className="hidden md:table-cell">Rol</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOperarios.map((operario) => (
                 <TableRow key={operario.operario_id}>
-                  <TableCell className="font-medium">#{operario.operario_id.toString().padStart(3, "0")}</TableCell>
+                  <TableCell className="hidden md:table-cell font-medium">
+                    #{operario.operario_id.toString().padStart(3, "0")}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-8 w-8 bg-blue-100">
@@ -333,14 +350,24 @@ export default function OperariosPage() {
                       </Avatar>
                       <div>
                         <div className="font-medium">{operario.nombre}</div>
-                        <div className="text-sm text-muted-foreground">{operario.apellido}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {operario.apellido}
+                        </div>
+                        <div className="md:hidden mt-1">
+                          <Badge className={getRolColor(operario.rol)}>
+                            <div className="flex items-center space-x-1">
+                              {getRolIcon(operario.rol)}
+                              <span>{operario.rol}</span>
+                            </div>
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {operario.nombre} {operario.apellido}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <Badge className={getRolColor(operario.rol)}>
                       <div className="flex items-center space-x-1">
                         {getRolIcon(operario.rol)}
@@ -350,11 +377,23 @@ export default function OperariosPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(operario)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(operario)}
+                        title="Editar Operario"
+                      >
                         <Edit className="h-4 w-4" />
+                        <span className="sr-only">Editar Operario</span>
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDelete(operario.operario_id)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(operario.operario_id)}
+                        title="Eliminar Operario"
+                      >
                         <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Eliminar Operario</span>
                       </Button>
                     </div>
                   </TableCell>
@@ -365,5 +404,5 @@ export default function OperariosPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

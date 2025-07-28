@@ -1,9 +1,10 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react";
+import { useMateriaPrima, useTiposComponente } from "@/hooks/useApi";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -11,177 +12,116 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Edit, Trash2, Search, AlertTriangle, Package } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  AlertTriangle,
+  Package,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 
 interface TipoComponente {
-  tipo_componente_id: number
-  nombre_tipo: string
+  tipo_componente_id: number;
+  nombre_tipo: string;
 }
 
 interface MateriaPrima {
-  materia_prima_id: number
-  nombre: string
-  descripcion: string
-  referencia_proveedor: string
-  unidad_medida: string
-  stock_actual: number
-  punto_pedido: number
-  tiempo_entrega_dias: number
-  longitud_estandar_m: number
-  color: string
-  id_tipo_componente: number
+  materia_prima_id: number;
+  nombre: string;
+  descripcion: string;
+  referencia_proveedor: string;
+  unidad_medida: string;
+  stock_actual: number;
+  punto_pedido: number;
+  tiempo_entrega_dias: number;
+  longitud_estandar_m: number;
+  color: string;
+  id_tipo_componente: number;
   // Campos adicionales para la gestión
-  proveedor?: string
-  precio_unitario?: number
-  ubicacion_almacen?: string
-  fecha_actualizacion?: string
+  proveedor?: string;
+  precio_unitario?: number;
+  ubicacion_almacen?: string;
+  fecha_actualizacion?: string;
 }
 
-const tiposComponente: TipoComponente[] = [
-  { tipo_componente_id: 1, nombre_tipo: "Aceros Estructurales" },
-  { tipo_componente_id: 2, nombre_tipo: "Aceros Inoxidables" },
-  { tipo_componente_id: 3, nombre_tipo: "Aleaciones de Aluminio" },
-  { tipo_componente_id: 4, nombre_tipo: "Metales No Ferrosos" },
-  { tipo_componente_id: 5, nombre_tipo: "Plásticos Industriales" },
-  { tipo_componente_id: 6, nombre_tipo: "Materiales Compuestos" },
-  { tipo_componente_id: 7, nombre_tipo: "Lubricantes y Químicos" },
-  { tipo_componente_id: 8, nombre_tipo: "Elementos de Fijación" },
-]
+  const {
+    materiales: materiaPrima,
+    createMaterial,
+    updateMaterial,
+    deleteMaterial,
+    refetch,
+    loading,
+    error,
+  } = useMateriaPrima() as {
+    materiales: MateriaPrima[];
+    createMaterial: (data: any) => Promise<any>;
+    updateMaterial: (id: number, data: any) => Promise<any>;
+    deleteMaterial: (id: number) => Promise<any>;
+    refetch: () => void;
+    loading: boolean;
+    error: string | null;
+  };
 
-const materiaPrimaInicial: MateriaPrima[] = [
-  {
-    materia_prima_id: 1,
-    nombre: "Acero Inoxidable AISI 304",
-    descripcion: "Lámina de acero inoxidable austenítico con excelente resistencia a la corrosión",
-    referencia_proveedor: "SS304-2MM-1250X2500",
-    unidad_medida: "kg",
-    stock_actual: 150.5,
-    punto_pedido: 50.0,
-    tiempo_entrega_dias: 7,
-    longitud_estandar_m: 2.5,
-    color: "Plateado Natural",
-    id_tipo_componente: 2,
-    proveedor: "MetalCorp S.A.",
-    precio_unitario: 8.5,
-    ubicacion_almacen: "A-1-001",
-    fecha_actualizacion: "2024-01-15",
-  },
-  {
-    materia_prima_id: 2,
-    nombre: "Aluminio 6061-T6",
-    descripcion: "Aleación de aluminio con tratamiento térmico T6, alta resistencia mecánica",
-    referencia_proveedor: "AL6061-T6-25MM-6000",
-    unidad_medida: "kg",
-    stock_actual: 25.75,
-    punto_pedido: 30.0,
-    tiempo_entrega_dias: 10,
-    longitud_estandar_m: 6.0,
-    color: "Plateado Mate",
-    id_tipo_componente: 3,
-    proveedor: "Aceros del Norte",
-    precio_unitario: 5.2,
-    ubicacion_almacen: "A-1-002",
-    fecha_actualizacion: "2024-01-10",
-  },
-  {
-    materia_prima_id: 3,
-    nombre: "Aceite de Corte Sintético Premium",
-    descripcion: "Fluido de corte sintético para operaciones de mecanizado CNC de alta precisión",
-    referencia_proveedor: "SYNTH-CUT-PRO-20L",
-    unidad_medida: "litro",
-    stock_actual: 80.0,
-    punto_pedido: 20.0,
-    tiempo_entrega_dias: 3,
-    longitud_estandar_m: 0.0,
-    color: "Amarillo Transparente",
-    id_tipo_componente: 7,
-    proveedor: "Herrajes Industriales",
-    precio_unitario: 12.0,
-    ubicacion_almacen: "B-2-001",
-    fecha_actualizacion: "2024-01-05",
-  },
-  {
-    materia_prima_id: 4,
-    nombre: "Lámina HDPE Industrial",
-    descripcion: "Polietileno de alta densidad para aplicaciones industriales y químicas",
-    referencia_proveedor: "HDPE-IND-3MM-1000X2000",
-    unidad_medida: "m2",
-    stock_actual: 0.0,
-    punto_pedido: 10.0,
-    tiempo_entrega_dias: 15,
-    longitud_estandar_m: 2.0,
-    color: "Natural Translúcido",
-    id_tipo_componente: 5,
-    proveedor: "MetalCorp S.A.",
-    precio_unitario: 15.5,
-    ubicacion_almacen: "C-1-001",
-    fecha_actualizacion: "2023-12-20",
-  },
-  {
-    materia_prima_id: 5,
-    nombre: "Acero Estructural A36",
-    descripcion: "Perfil estructural de acero al carbono para construcción",
-    referencia_proveedor: "A36-IPE200-12000",
-    unidad_medida: "kg",
-    stock_actual: 320.0,
-    punto_pedido: 100.0,
-    tiempo_entrega_dias: 5,
-    longitud_estandar_m: 12.0,
-    color: "Negro Laminado",
-    id_tipo_componente: 1,
-    proveedor: "Aceros del Norte",
-    precio_unitario: 3.8,
-    ubicacion_almacen: "A-3-001",
-    fecha_actualizacion: "2024-01-18",
-  },
-  {
-    materia_prima_id: 6,
-    nombre: "Tornillos Hexagonales M12x40",
-    descripcion: "Tornillos hexagonales de acero galvanizado grado 8.8",
-    referencia_proveedor: "HEX-M12X40-GAL-8.8",
-    unidad_medida: "unidad",
-    stock_actual: 850.0,
-    punto_pedido: 200.0,
-    tiempo_entrega_dias: 2,
-    longitud_estandar_m: 0.04,
-    color: "Galvanizado",
-    id_tipo_componente: 8,
-    proveedor: "Herrajes Industriales",
-    precio_unitario: 0.85,
-    ubicacion_almacen: "B-1-003",
-    fecha_actualizacion: "2024-01-12",
-  },
-]
-
-export default function MateriaPrimaPage() {
-  const [materiaPrima, setMateriaPrima] = useState<MateriaPrima[]>(materiaPrimaInicial)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingMaterial, setEditingMaterial] = useState<MateriaPrima | null>(null)
+  const {
+    tipos: tiposComponente,
+    loading: loadingTipos,
+    error: errorTipos,
+    refetch: refetchTipos,
+  } = useTiposComponente() as {
+    tipos: TipoComponente[];
+    loading: boolean;
+    error: string | null;
+    refetch: () => void;
+  };
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<MateriaPrima | null>(
+    null
+  );
 
   const filteredMateriales = materiaPrima.filter(
     (material) =>
       material.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       material.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      material.referencia_proveedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      material.referencia_proveedor
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
       material.color.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tiposComponente
         .find((tc) => tc.tipo_componente_id === material.id_tipo_componente)
         ?.nombre_tipo.toLowerCase()
-        .includes(searchTerm.toLowerCase()),
-  )
+        .includes(searchTerm.toLowerCase())
+  );
 
-  const materialesBajoStock = materiaPrima.filter((material) => material.stock_actual <= material.punto_pedido)
-  const materialesSinStock = materiaPrima.filter((material) => material.stock_actual === 0)
+  const materialesBajoStock = materiaPrima.filter(
+    (material) => material.stock_actual <= material.punto_pedido
+  );
+  const materialesSinStock = materiaPrima.filter(
+    (material) => material.stock_actual === 0
+  );
 
-  const handleSubmit = (formData: FormData) => {
-    const newMaterial: MateriaPrima = {
-      materia_prima_id: editingMaterial?.materia_prima_id || Date.now(),
+  const handleSubmit = async (formData: FormData) => {
+    const materialData = {
+      materia_prima_id: editingMaterial?.materia_prima_id,
       nombre: formData.get("nombre") as string,
       descripcion: formData.get("descripcion") as string,
       referencia_proveedor: formData.get("referencia_proveedor") as string,
@@ -196,73 +136,60 @@ export default function MateriaPrimaPage() {
       precio_unitario: Number.parseFloat(formData.get("precio_unitario") as string),
       ubicacion_almacen: formData.get("ubicacion_almacen") as string,
       fecha_actualizacion: new Date().toISOString().split("T")[0],
-    }
+    };
 
     if (editingMaterial) {
-      setMateriaPrima(
-        materiaPrima.map((mat) => (mat.materia_prima_id === editingMaterial.materia_prima_id ? newMaterial : mat)),
-      )
+      await updateMaterial(editingMaterial.materia_prima_id, materialData);
     } else {
-      setMateriaPrima([...materiaPrima, newMaterial])
+      await createMaterial(materialData);
     }
-
-    setIsDialogOpen(false)
-    setEditingMaterial(null)
-  }
+    refetch();
+    setIsDialogOpen(false);
+    setEditingMaterial(null);
+  };
 
   const handleEdit = (material: MateriaPrima) => {
-    setEditingMaterial(material)
-    setIsDialogOpen(true)
-  }
+    setEditingMaterial(material);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (id: number) => {
-    setMateriaPrima(materiaPrima.filter((mat) => mat.materia_prima_id !== id))
-  }
+  const handleDelete = async (id: number) => {
+    await deleteMaterial(id);
+    refetch();
+  };
 
   const resetForm = () => {
-    setEditingMaterial(null)
-    setIsDialogOpen(false)
-  }
+    setEditingMaterial(null);
+    setIsDialogOpen(false);
+  };
 
   const getStockStatus = (material: MateriaPrima) => {
     if (material.stock_actual === 0) {
-      return { status: "Sin Stock", variant: "destructive" as const }
+      return { status: "Sin Stock", variant: "destructive" as const };
     } else if (material.stock_actual <= material.punto_pedido) {
-      return { status: "Punto de Pedido", variant: "destructive" as const }
+      return { status: "Punto de Pedido", variant: "destructive" as const };
     } else if (material.stock_actual <= material.punto_pedido * 1.5) {
-      return { status: "Stock Bajo", variant: "secondary" as const }
+      return { status: "Stock Bajo", variant: "secondary" as const };
     } else {
-      return { status: "Stock Normal", variant: "default" as const }
+      return { status: "Stock Normal", variant: "default" as const };
     }
-  }
+  };
 
   const getTipoComponenteNombre = (id: number) => {
-    return tiposComponente.find((tc) => tc.tipo_componente_id === id)?.nombre_tipo || "No definido"
-  }
-
-  const getColorBadge = (color: string) => {
-    const colorMap: { [key: string]: string } = {
-      "Plateado Natural": "bg-gray-100 text-gray-800",
-      "Plateado Mate": "bg-gray-200 text-gray-900",
-      "Amarillo Transparente": "bg-yellow-100 text-yellow-800",
-      "Natural Translúcido": "bg-blue-50 text-blue-700",
-      "Negro Laminado": "bg-gray-800 text-white",
-      Galvanizado: "bg-zinc-100 text-zinc-800",
-    }
-
     return (
-      <Badge className={colorMap[color] || "bg-gray-100 text-gray-800"} variant="secondary">
-        {color}
-      </Badge>
-    )
-  }
+      tiposComponente.find((tc) => tc.tipo_componente_id === id)?.nombre_tipo ||
+      "No definido"
+    );
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Materia Prima</h2>
-          <p className="text-muted-foreground">Gestión de materias primas y componentes industriales</p>
+          <p className="text-muted-foreground">
+            Gestión de materias primas y componentes industriales
+          </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -273,7 +200,11 @@ export default function MateriaPrimaPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingMaterial ? "Editar Materia Prima" : "Nueva Materia Prima"}</DialogTitle>
+              <DialogTitle>
+                {editingMaterial
+                  ? "Editar Materia Prima"
+                  : "Nueva Materia Prima"}
+              </DialogTitle>
               <DialogDescription>
                 {editingMaterial
                   ? "Modifica los datos de la materia prima"
@@ -284,19 +215,32 @@ export default function MateriaPrimaPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="nombre">Nombre *</Label>
-                  <Input id="nombre" name="nombre" defaultValue={editingMaterial?.nombre || ""} required />
+                  <Input
+                    id="nombre"
+                    name="nombre"
+                    defaultValue={editingMaterial?.nombre || ""}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="id_tipo_componente">Tipo de Componente *</Label>
+                  <Label htmlFor="id_tipo_componente">
+                    Tipo de Componente *
+                  </Label>
                   <select
                     id="id_tipo_componente"
                     name="id_tipo_componente"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                    defaultValue={editingMaterial?.id_tipo_componente || tiposComponente[0].tipo_componente_id}
+                    defaultValue={
+                      editingMaterial?.id_tipo_componente ||
+                      tiposComponente[0].tipo_componente_id
+                    }
                     required
                   >
                     {tiposComponente.map((tipo) => (
-                      <option key={tipo.tipo_componente_id} value={tipo.tipo_componente_id}>
+                      <option
+                        key={tipo.tipo_componente_id}
+                        value={tipo.tipo_componente_id}
+                      >
                         {tipo.nombre_tipo}
                       </option>
                     ))}
@@ -317,7 +261,9 @@ export default function MateriaPrimaPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="referencia_proveedor">Referencia del Proveedor *</Label>
+                  <Label htmlFor="referencia_proveedor">
+                    Referencia del Proveedor *
+                  </Label>
                   <Input
                     id="referencia_proveedor"
                     name="referencia_proveedor"
@@ -374,7 +320,9 @@ export default function MateriaPrimaPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tiempo_entrega_dias">Tiempo Entrega (días) *</Label>
+                  <Label htmlFor="tiempo_entrega_dias">
+                    Tiempo Entrega (días) *
+                  </Label>
                   <Input
                     id="tiempo_entrega_dias"
                     name="tiempo_entrega_dias"
@@ -388,7 +336,9 @@ export default function MateriaPrimaPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="longitud_estandar_m">Longitud Estándar (m) *</Label>
+                  <Label htmlFor="longitud_estandar_m">
+                    Longitud Estándar (m) *
+                  </Label>
                   <Input
                     id="longitud_estandar_m"
                     name="longitud_estandar_m"
@@ -413,7 +363,9 @@ export default function MateriaPrimaPage() {
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium mb-3">Información Adicional de Gestión</h4>
+                <h4 className="text-sm font-medium mb-3">
+                  Información Adicional de Gestión
+                </h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="proveedor">Proveedor</Label>
@@ -421,13 +373,21 @@ export default function MateriaPrimaPage() {
                       id="proveedor"
                       name="proveedor"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                      defaultValue={editingMaterial?.proveedor || "MetalCorp S.A."}
+                      defaultValue={
+                        editingMaterial?.proveedor || "MetalCorp S.A."
+                      }
                     >
                       <option value="MetalCorp S.A.">MetalCorp S.A.</option>
                       <option value="Aceros del Norte">Aceros del Norte</option>
-                      <option value="Herrajes Industriales">Herrajes Industriales</option>
-                      <option value="Plásticos Industriales SAC">Plásticos Industriales SAC</option>
-                      <option value="Químicos y Lubricantes EIRL">Químicos y Lubricantes EIRL</option>
+                      <option value="Herrajes Industriales">
+                        Herrajes Industriales
+                      </option>
+                      <option value="Plásticos Industriales SAC">
+                        Plásticos Industriales SAC
+                      </option>
+                      <option value="Químicos y Lubricantes EIRL">
+                        Químicos y Lubricantes EIRL
+                      </option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -444,7 +404,9 @@ export default function MateriaPrimaPage() {
                   </div>
                 </div>
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="ubicacion_almacen">Ubicación en Almacén</Label>
+                  <Label htmlFor="ubicacion_almacen">
+                    Ubicación en Almacén
+                  </Label>
                   <Input
                     id="ubicacion_almacen"
                     name="ubicacion_almacen"
@@ -458,7 +420,9 @@ export default function MateriaPrimaPage() {
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancelar
                 </Button>
-                <Button type="submit">{editingMaterial ? "Actualizar" : "Crear"}</Button>
+                <Button type="submit">
+                  {editingMaterial ? "Actualizar" : "Crear"}
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -468,7 +432,9 @@ export default function MateriaPrimaPage() {
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Materiales</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Materiales
+            </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -481,16 +447,24 @@ export default function MateriaPrimaPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {materiaPrima.filter((m) => m.stock_actual > m.punto_pedido * 1.5).length}
+              {
+                materiaPrima.filter(
+                  (m) => m.stock_actual > m.punto_pedido * 1.5
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Punto de Pedido</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Punto de Pedido
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{materialesBajoStock.length}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {materialesBajoStock.length}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -498,18 +472,25 @@ export default function MateriaPrimaPage() {
             <CardTitle className="text-sm font-medium">Sin Stock</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{materialesSinStock.length}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {materialesSinStock.length}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Inventario</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Valor Inventario
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               S/{" "}
               {materiaPrima
-                .reduce((acc, m) => acc + m.stock_actual * (m.precio_unitario || 0), 0)
+                .reduce(
+                  (acc, m) => acc + m.stock_actual * (m.precio_unitario || 0),
+                  0
+                )
                 .toLocaleString("es-PE", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -526,7 +507,8 @@ export default function MateriaPrimaPage() {
                   Materiales en Punto de Pedido
                 </CardTitle>
                 <CardDescription className="text-orange-700">
-                  {materialesBajoStock.length} materiales han alcanzado el punto de pedido
+                  {materialesBajoStock.length} materiales han alcanzado el punto
+                  de pedido
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -539,11 +521,13 @@ export default function MateriaPrimaPage() {
                       <div>
                         <span className="font-medium">{material.nombre}</span>
                         <div className="text-xs text-orange-600">
-                          Entrega: {material.tiempo_entrega_dias} días | Ref: {material.referencia_proveedor}
+                          Entrega: {material.tiempo_entrega_dias} días | Ref:{" "}
+                          {material.referencia_proveedor}
                         </div>
                       </div>
                       <span className="text-sm text-orange-600">
-                        {material.stock_actual} / {material.punto_pedido} {material.unidad_medida}
+                        {material.stock_actual} / {material.punto_pedido}{" "}
+                        {material.unidad_medida}
                       </span>
                     </div>
                   ))}
@@ -582,7 +566,9 @@ export default function MateriaPrimaPage() {
                           {getTipoComponenteNombre(material.id_tipo_componente)}
                         </div>
                       </div>
-                      <span className="text-sm text-red-600 font-medium">AGOTADO</span>
+                      <span className="text-sm text-red-600 font-medium">
+                        AGOTADO
+                      </span>
                     </div>
                   ))}
                   {materialesSinStock.length > 3 && (
@@ -600,7 +586,9 @@ export default function MateriaPrimaPage() {
       <Card>
         <CardHeader>
           <CardTitle>Inventario de Materia Prima</CardTitle>
-          <CardDescription>Gestión completa de materias primas según especificaciones técnicas</CardDescription>
+          <CardDescription>
+            Gestión completa de materias primas según especificaciones técnicas
+          </CardDescription>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -614,20 +602,23 @@ export default function MateriaPrimaPage() {
             <select
               className="flex h-10 w-64 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               onChange={(e) => {
-                const tipoId = e.target.value
+                const tipoId = e.target.value;
                 if (tipoId === "all") {
-                  setSearchTerm("")
+                  setSearchTerm("");
                 } else {
                   const tipoNombre = tiposComponente.find(
-                    (tc) => tc.tipo_componente_id === Number.parseInt(tipoId),
-                  )?.nombre_tipo
-                  setSearchTerm(tipoNombre || "")
+                    (tc) => tc.tipo_componente_id === Number.parseInt(tipoId)
+                  )?.nombre_tipo;
+                  setSearchTerm(tipoNombre || "");
                 }
               }}
             >
               <option value="all">Todos los tipos de componente</option>
               {tiposComponente.map((tipo) => (
-                <option key={tipo.tipo_componente_id} value={tipo.tipo_componente_id}>
+                <option
+                  key={tipo.tipo_componente_id}
+                  value={tipo.tipo_componente_id}
+                >
                   {tipo.nombre_tipo}
                 </option>
               ))}
@@ -639,35 +630,48 @@ export default function MateriaPrimaPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Material</TableHead>
-                <TableHead>Tipo Componente</TableHead>
-                <TableHead>Referencia</TableHead>
+                <TableHead className="hidden md:table-cell">Tipo</TableHead>
                 <TableHead>Stock</TableHead>
-                <TableHead>Punto Pedido</TableHead>
-                <TableHead>Entrega</TableHead>
-                <TableHead>Color</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Punto Pedido
+                </TableHead>
+                <TableHead className="hidden lg:table-cell">Entrega</TableHead>
+                <TableHead className="hidden md:table-cell">Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredMateriales.map((material) => {
-                const stockStatus = getStockStatus(material)
+                const stockStatus = getStockStatus(material);
                 return (
                   <TableRow key={material.materia_prima_id}>
                     <TableCell>
                       <div>
                         <div className="font-medium">{material.nombre}</div>
+                        <div className="text-sm text-muted-foreground md:hidden">
+                          <Badge variant={stockStatus.variant} className="mb-1">
+                            {stockStatus.status}
+                          </Badge>
+                        </div>
                         <div className="text-sm text-muted-foreground">
-                          {material.longitud_estandar_m > 0 && `${material.longitud_estandar_m}m | `}
-                          {material.proveedor}
+                          <span className="md:hidden">
+                            {getTipoComponenteNombre(
+                              material.id_tipo_componente
+                            )}{" "}
+                            |
+                          </span>
+                          {material.longitud_estandar_m > 0 &&
+                            `${material.longitud_estandar_m}m | `}
+                          <span className="hidden md:inline">
+                            {material.proveedor}
+                          </span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getTipoComponenteNombre(material.id_tipo_componente)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{material.referencia_proveedor}</code>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant="outline">
+                        {getTipoComponenteNombre(material.id_tipo_componente)}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div>
@@ -676,36 +680,59 @@ export default function MateriaPrimaPage() {
                         </span>
                         {material.precio_unitario && (
                           <div className="text-xs text-muted-foreground">
-                            S/ {(material.stock_actual * material.precio_unitario).toFixed(2)}
+                            S/{" "}
+                            {(
+                              material.stock_actual * material.precio_unitario
+                            ).toFixed(2)}
                           </div>
                         )}
+                        <div className="text-xs text-muted-foreground lg:hidden">
+                          {material.tiempo_entrega_dias} días entrega
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {material.punto_pedido} {material.unidad_medida}
                     </TableCell>
-                    <TableCell>{material.tiempo_entrega_dias} días</TableCell>
-                    <TableCell>{getColorBadge(material.color)}</TableCell>
-                    <TableCell>
-                      <Badge variant={stockStatus.variant}>{stockStatus.status}</Badge>
+                    <TableCell className="hidden lg:table-cell">
+                      {material.tiempo_entrega_dias} días
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant={stockStatus.variant}>
+                        {stockStatus.status}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit(material)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(material)}
+                          title="Editar Material"
+                        >
                           <Edit className="h-4 w-4" />
+                          <span className="sr-only">Editar Material</span>
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDelete(material.materia_prima_id)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleDelete(material.materia_prima_id)
+                          }
+                          title="Eliminar Material"
+                        >
                           <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Eliminar Material</span>
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                )
+                );
               })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

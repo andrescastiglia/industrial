@@ -1,8 +1,8 @@
 import type React from "react"
 import { isAuthenticated } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
+import { MobileMenu } from "@/components/mobile-menu"
 
 export default async function DashboardLayout({
   children,
@@ -17,10 +17,10 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar />
+      <MobileMenu />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">{children}</main>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4">{children}</main>
       </div>
     </div>
   )

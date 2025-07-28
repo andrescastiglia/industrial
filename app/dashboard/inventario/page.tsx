@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useApi, useTiposComponente } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,141 +71,34 @@ interface MovimientoInventario {
   usuario: string;
 }
 
-const tiposComponente: TipoComponente[] = [
-  { tipo_componente_id: 1, nombre_tipo: "Aceros Estructurales" },
-  { tipo_componente_id: 2, nombre_tipo: "Aceros Inoxidables" },
-  { tipo_componente_id: 3, nombre_tipo: "Aleaciones de Aluminio" },
-  { tipo_componente_id: 4, nombre_tipo: "Metales No Ferrosos" },
-  { tipo_componente_id: 5, nombre_tipo: "Plásticos Industriales" },
-  { tipo_componente_id: 6, nombre_tipo: "Materiales Compuestos" },
-  { tipo_componente_id: 7, nombre_tipo: "Lubricantes y Químicos" },
-  { tipo_componente_id: 8, nombre_tipo: "Elementos de Fijación" },
-  { tipo_componente_id: 9, nombre_tipo: "Herramientas de Corte" },
-  { tipo_componente_id: 10, nombre_tipo: "Consumibles Industriales" },
-];
-
-// Datos de materia prima existente (simulando que vienen de la base de datos)
-const materiaPrimaInicial: MateriaPrima[] = [
-  {
-    materia_prima_id: 1,
-    nombre: "Acero Inoxidable AISI 304",
-    descripcion:
-      "Lámina de acero inoxidable austenítico con excelente resistencia a la corrosión",
-    referencia_proveedor: "SS304-2MM-1250X2500",
-    unidad_medida: "kg",
-    stock_actual: 150.5,
-    punto_pedido: 50.0,
-    tiempo_entrega_dias: 7,
-    longitud_estandar_m: 2.5,
-    color: "Plateado Natural",
-    id_tipo_componente: 2,
-  },
-  {
-    materia_prima_id: 2,
-    nombre: "Aluminio 6061-T6",
-    descripcion:
-      "Aleación de aluminio con tratamiento térmico T6, alta resistencia mecánica",
-    referencia_proveedor: "AL6061-T6-25MM-6000",
-    unidad_medida: "kg",
-    stock_actual: 25.75,
-    punto_pedido: 30.0,
-    tiempo_entrega_dias: 10,
-    longitud_estandar_m: 6.0,
-    color: "Plateado Mate",
-    id_tipo_componente: 3,
-  },
-  {
-    materia_prima_id: 3,
-    nombre: "Aceite de Corte Sintético Premium",
-    descripcion:
-      "Fluido de corte sintético para operaciones de mecanizado CNC de alta precisión",
-    referencia_proveedor: "SYNTH-CUT-PRO-20L",
-    unidad_medida: "litro",
-    stock_actual: 80.0,
-    punto_pedido: 20.0,
-    tiempo_entrega_dias: 3,
-    longitud_estandar_m: 0.0,
-    color: "Amarillo Transparente",
-    id_tipo_componente: 7,
-  },
-  {
-    materia_prima_id: 4,
-    nombre: "Lámina HDPE Industrial",
-    descripcion:
-      "Polietileno de alta densidad para aplicaciones industriales y químicas",
-    referencia_proveedor: "HDPE-IND-3MM-1000X2000",
-    unidad_medida: "m2",
-    stock_actual: 0.0,
-    punto_pedido: 10.0,
-    tiempo_entrega_dias: 15,
-    longitud_estandar_m: 2.0,
-    color: "Natural Translúcido",
-    id_tipo_componente: 5,
-  },
-  {
-    materia_prima_id: 5,
-    nombre: "Acero Estructural A36",
-    descripcion: "Perfil estructural de acero al carbono para construcción",
-    referencia_proveedor: "A36-IPE200-12000",
-    unidad_medida: "kg",
-    stock_actual: 320.0,
-    punto_pedido: 100.0,
-    tiempo_entrega_dias: 5,
-    longitud_estandar_m: 12.0,
-    color: "Negro Laminado",
-    id_tipo_componente: 1,
-  },
-  {
-    materia_prima_id: 6,
-    nombre: "Tornillos Hexagonales M12x40",
-    descripcion: "Tornillos hexagonales de acero galvanizado grado 8.8",
-    referencia_proveedor: "HEX-M12X40-GAL-8.8",
-    unidad_medida: "unidad",
-    stock_actual: 850.0,
-    punto_pedido: 200.0,
-    tiempo_entrega_dias: 2,
-    longitud_estandar_m: 0.04,
-    color: "Galvanizado",
-    id_tipo_componente: 8,
-  },
-  {
-    materia_prima_id: 7,
-    nombre: "Broca HSS Cobalto Ø8mm",
-    descripcion:
-      "Broca de acero rápido con cobalto para perforación en aceros duros",
-    referencia_proveedor: "HSS-CO-8MM-DIN338",
-    unidad_medida: "unidad",
-    stock_actual: 15.0,
-    punto_pedido: 25.0,
-    tiempo_entrega_dias: 7,
-    longitud_estandar_m: 0.117,
-    color: "Dorado",
-    id_tipo_componente: 9,
-  },
-  {
-    materia_prima_id: 8,
-    nombre: "Soldadura MIG ER70S-6",
-    descripcion:
-      "Alambre de soldadura MIG para aceros al carbono, diámetro 1.2mm",
-    referencia_proveedor: "MIG-ER70S6-1.2-15KG",
-    unidad_medida: "kg",
-    stock_actual: 45.5,
-    punto_pedido: 15.0,
-    tiempo_entrega_dias: 4,
-    longitud_estandar_m: 0.0,
-    color: "Cobre Brillante",
-    id_tipo_componente: 10,
-  },
-];
-
-export default function InventarioPage() {
-  const [materiaPrima, setMateriaPrima] =
-    useState<MateriaPrima[]>(materiaPrimaInicial);
+  const {
+    tipos: tiposComponente,
+    loading: loadingTipos,
+    error: errorTipos,
+    refetch: refetchTipos,
+  } = useTiposComponente() as {
+    tipos: TipoComponente[];
+    loading: boolean;
+    error: string | null;
+    refetch: () => void;
+  };
+  const [materiaPrima, setMateriaPrima] = useState<MateriaPrima[]>([]);
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
+  const { get, post } = useApi();
   const [searchTerm, setSearchTerm] = useState("");
   const [isMovimientoDialogOpen, setIsMovimientoDialogOpen] = useState(false);
   const [materialSeleccionado, setMaterialSeleccionado] =
     useState<MateriaPrima | null>(null);
+
+  useEffect(() => {
+    const loadInventario = async () => {
+      const data = await get("/api/inventario");
+      if (data) setMateriaPrima(data);
+      const movs = await get("/api/inventario/movimientos");
+      if (movs) setMovimientos(movs);
+    };
+    loadInventario();
+  }, [get]);
 
   const filteredMateriales = materiaPrima.filter(
     (material) =>
@@ -230,51 +124,27 @@ export default function InventarioPage() {
     (material) => material.stock_actual > material.punto_pedido * 1.5
   );
 
-  const handleMovimientoStock = (formData: FormData) => {
+  const handleMovimientoStock = async (formData: FormData) => {
     if (!materialSeleccionado) return;
-
     const tipoMovimiento = formData.get("tipo_movimiento") as
       | "Entrada"
       | "Salida"
       | "Ajuste";
     const cantidad = Number.parseFloat(formData.get("cantidad") as string);
     const motivo = formData.get("motivo") as string;
-
-    // Crear el movimiento
-    const nuevoMovimiento: MovimientoInventario = {
-      movimiento_id: Date.now(),
+    const movimientoData = {
       materia_prima_id: materialSeleccionado.materia_prima_id,
       tipo_movimiento: tipoMovimiento,
-      cantidad: cantidad,
-      motivo: motivo,
-      fecha: new Date().toISOString().split("T")[0],
-      usuario: "Administrador", // En producción vendría del usuario logueado
+      cantidad,
+      motivo,
     };
-
-    // Actualizar el stock
-    const nuevosStock = materiaPrima.map((material) => {
-      if (material.materia_prima_id === materialSeleccionado.materia_prima_id) {
-        let nuevoStock = material.stock_actual;
-
-        switch (tipoMovimiento) {
-          case "Entrada":
-            nuevoStock += cantidad;
-            break;
-          case "Salida":
-            nuevoStock = Math.max(0, nuevoStock - cantidad); // No permitir stock negativo
-            break;
-          case "Ajuste":
-            nuevoStock = cantidad; // Ajuste directo al valor especificado
-            break;
-        }
-
-        return { ...material, stock_actual: nuevoStock };
-      }
-      return material;
-    });
-
-    setMateriaPrima(nuevosStock);
-    setMovimientos([nuevoMovimiento, ...movimientos]);
+    const res = await post("/api/inventario/movimientos", movimientoData);
+    if (res) {
+      const data = await get("/api/inventario");
+      if (data) setMateriaPrima(data);
+      const movs = await get("/api/inventario/movimientos");
+      if (movs) setMovimientos(movs);
+    }
     setIsMovimientoDialogOpen(false);
     setMaterialSeleccionado(null);
   };
@@ -596,13 +466,17 @@ export default function InventarioPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Material</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Referencia</TableHead>
+                <TableHead className="hidden md:table-cell">Tipo</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Referencia
+                </TableHead>
                 <TableHead>Stock Actual</TableHead>
-                <TableHead>Punto Pedido</TableHead>
-                <TableHead>Color</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Movimientos</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Punto Pedido
+                </TableHead>
+                <TableHead className="hidden lg:table-cell">Color</TableHead>
+                <TableHead className="hidden md:table-cell">Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -613,19 +487,31 @@ export default function InventarioPage() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{material.nombre}</div>
+                        <div className="text-sm text-muted-foreground md:hidden">
+                          <Badge variant={stockStatus.variant} className="mb-1">
+                            {stockStatus.status}
+                          </Badge>
+                        </div>
                         <div className="text-sm text-muted-foreground">
                           {material.longitud_estandar_m > 0 &&
                             `${material.longitud_estandar_m}m | `}
-                          ID: {material.materia_prima_id}
+                          <span className="md:hidden">
+                            {getTipoComponenteNombre(
+                              material.id_tipo_componente
+                            )}
+                          </span>
+                          <span className="hidden md:inline">
+                            ID: {material.materia_prima_id}
+                          </span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Badge variant="outline">
                         {getTipoComponenteNombre(material.id_tipo_componente)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
                         {material.referencia_proveedor}
                       </code>
@@ -637,19 +523,19 @@ export default function InventarioPage() {
                         </span>
                         <div className="text-xs text-muted-foreground flex items-center space-x-1">
                           <Clock className="h-3 w-3" />
-                          <span>
-                            Entrega: {material.tiempo_entrega_dias} días
-                          </span>
+                          <span>{material.tiempo_entrega_dias} días</span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <span className="text-sm">
                         {material.punto_pedido} {material.unidad_medida}
                       </span>
                     </TableCell>
-                    <TableCell>{getColorBadge(material.color)}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {getColorBadge(material.color)}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Badge variant={stockStatus.variant}>
                         {stockStatus.status}
                       </Badge>
@@ -663,8 +549,10 @@ export default function InventarioPage() {
                             abrirMovimientoDialog(material, "Entrada")
                           }
                           className="text-green-600 hover:text-green-700"
+                          title="Entrada de Stock"
                         >
                           <Plus className="h-4 w-4" />
+                          <span className="sr-only">Entrada de Stock</span>
                         </Button>
                         <Button
                           variant="outline"
@@ -674,8 +562,10 @@ export default function InventarioPage() {
                           }
                           className="text-red-600 hover:text-red-700"
                           disabled={material.stock_actual === 0}
+                          title="Salida de Stock"
                         >
                           <Minus className="h-4 w-4" />
+                          <span className="sr-only">Salida de Stock</span>
                         </Button>
                       </div>
                     </TableCell>

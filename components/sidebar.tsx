@@ -34,22 +34,33 @@ const navigation = [
   },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
+  const handleClick = () => {
+    if (onNavigate) {
+      onNavigate();
+    }
+  };
+
   return (
-    <div className="flex flex-col w-64 bg-white shadow-lg">
+    <div className="flex flex-col w-64 h-full bg-white shadow-lg">
       <div className="flex items-center justify-center h-16 border-b">
         <Building2 className="h-8 w-8 text-blue-600" />
         <span className="ml-2 text-xl font-semibold">Maese</span>
       </div>
-      <nav className="flex-1 px-4 py-6 space-y-2">
+      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
           const Icon = item.icon;
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleClick}
               className={cn(
                 "flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                 pathname === item.href
