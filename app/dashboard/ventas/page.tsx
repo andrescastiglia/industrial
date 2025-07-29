@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
-import { useProductos } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,60 +36,32 @@ import {
   Eye,
   ShoppingCart,
   Calendar,
-  DollarSign,
   Package,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useProductos } from "@/hooks/useProductos";
+import { DetalleOrdenVenta, OrdenVenta } from "@/lib/database";
+import { useClientes } from "@/hooks/useClientes";
 
-interface DetalleOrdenVenta {
-  detalle_orden_venta_id: number;
-  orden_venta_id: number;
-  producto_id: number;
-  cantidad: number;
-  precio_unitario_venta: number;
-}
-
-interface OrdenVenta {
-  orden_venta_id: number;
-  cliente_id: number;
-  fecha_pedido: string;
-  fecha_entrega_estimada: string;
-  fecha_entrega_real?: string;
-  estado: string;
-  total_venta: number;
-  detalles: DetalleOrdenVenta[];
-}
-
-// Datos de ejemplo para clientes (simulando FK)
-const clientes = [
-  { cliente_id: 1, nombre: "Constructora ABC", contacto: "Juan Pérez" },
-  { cliente_id: 2, nombre: "Industrias XYZ", contacto: "María García" },
-  { cliente_id: 3, nombre: "Metales del Sur", contacto: "Carlos López" },
-  { cliente_id: 4, nombre: "Aceros Unidos", contacto: "Ana Martínez" },
-  { cliente_id: 5, nombre: "Fabricaciones Norte", contacto: "Roberto Silva" },
-];
+export default function VentasPage() {
+  const { clientes } = useClientes() as {
+    clientes: { cliente_id: number; nombre: string; contacto: string }[];
+  };
+  const clientesLoaded = clientes && clientes.length > 0;
 
   const [ordenesVenta, setOrdenesVenta] = useState<OrdenVenta[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const {
-    productos,
-    loading: loadingProductos,
-    error: errorProductos,
-    refetch: refetchProductos,
-  } = useProductos() as {
-    productos: { producto_id: number; nombre: string; precio_base: number }[];
-    loading: boolean;
-    error: string | null;
-    refetch: () => void;
-  };
+  const [, setLoading] = useState(false);
+  const [, setError] = useState<string | null>(null);
+  const { productos } = useProductos();
+  const productosLoaded = productos && productos.length > 0;
+
   useEffect(() => {
     const fetchOrdenesVenta = async () => {
       setLoading(true);
       try {
         const data = await apiClient.getVentas();
         setOrdenesVenta(data as OrdenVenta[]);
-      } catch (err) {
+      } catch {
         setError("Error al cargar ventas");
       } finally {
         setLoading(false);
@@ -111,30 +82,31 @@ const clientes = [
     const cliente = clientes.find((c) => c.cliente_id === orden.cliente_id);
     return (
       orden.orden_venta_id.toString().includes(searchTerm.toLowerCase()) ||
-      cliente?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (cliente?.nombre?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase()
+      ) ||
       orden.estado.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("es-PE");
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("es-AR");
   };
 
-  const calcularDiasRetraso = (fechaEstimada: string, fechaReal?: string) => {
-    const estimada = new Date(fechaEstimada);
-    const actual = fechaReal ? new Date(fechaReal) : new Date();
+  const calcularDiasRetraso = (estimada: Date, fechaReal?: Date) => {
+    const actual = fechaReal ?? new Date();
     const diffTime = actual.getTime() - estimada.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
 
   const agregarDetalle = () => {
+    if (!productosLoaded) return;
     setDetallesTemp([
       ...detallesTemp,
       {
         producto_id: productos[0].producto_id,
         cantidad: 1,
-        precio_unitario_venta: productos[0].precio_base,
       },
     ]);
   };
@@ -143,46 +115,40 @@ const clientes = [
     setDetallesTemp(detallesTemp.filter((_, i) => i !== index));
   };
 
-  const actualizarDetalle = (index: number, campo: string, valor: any) => {
+  const actualizarDetalle = (
+    index: number,
+    campo: string,
+    valor: string | number
+  ) => {
     const nuevosDetalles = [...detallesTemp];
     nuevosDetalles[index] = { ...nuevosDetalles[index], [campo]: valor };
-
-    // Si cambia el producto, actualizar el precio base
-    if (campo === "producto_id") {
-      const producto = productos.find(
-        (p) => p.producto_id === Number.parseInt(valor)
-      );
-      if (producto) {
-        nuevosDetalles[index].precio_unitario_venta = producto.precio_base;
-      }
-    }
-
     setDetallesTemp(nuevosDetalles);
   };
 
   const calcularTotalDetalles = () => {
-    return detallesTemp.reduce(
-      (total, detalle) =>
-        total + detalle.cantidad * detalle.precio_unitario_venta,
-      0
-    );
+    return detallesTemp.reduce((total, detalle) => total + detalle.cantidad, 0);
   };
 
-  const handleSubmit = async (formData: FormData) => {
-    const totalVenta = calcularTotalDetalles();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
     const ordenId = editingOrden?.orden_venta_id ?? Date.now();
     const nuevaOrden: OrdenVenta = {
       orden_venta_id: ordenId,
       cliente_id: Number.parseInt(formData.get("cliente_id") as string),
-      fecha_pedido: formData.get("fecha_pedido") as string,
-      fecha_entrega_estimada: formData.get("fecha_entrega_estimada") as string,
-      fecha_entrega_real:
-        (formData.get("fecha_entrega_real") as string) || undefined,
+      fecha_pedido: new Date(formData.get("fecha_pedido") as string),
+      fecha_entrega_estimada: new Date(
+        formData.get("fecha_entrega_estimada") as string
+      ),
+      fecha_entrega_real: formData.get("fecha_entrega_real")
+        ? new Date(formData.get("fecha_entrega_real") as string)
+        : undefined,
       estado: formData.get("estado") as string,
-      total_venta: totalVenta,
-      detalles: detallesTemp.map((detalle, index) => ({
+      detalle: detallesTemp.map((detalle, index) => ({
         detalle_orden_venta_id:
-          editingOrden?.detalles[index]?.detalle_orden_venta_id || Date.now() + index,
+          editingOrden?.detalle?.[index]?.detalle_orden_venta_id ||
+          Date.now() + index,
         orden_venta_id: ordenId,
         ...detalle,
       })),
@@ -195,7 +161,7 @@ const clientes = [
       }
       const data = await apiClient.getVentas();
       setOrdenesVenta(data as OrdenVenta[]);
-    } catch (err) {
+    } catch {
       setError("Error al guardar venta");
     }
     setIsDialogOpen(false);
@@ -205,11 +171,7 @@ const clientes = [
 
   const handleEdit = (orden: OrdenVenta) => {
     setEditingOrden(orden);
-    setDetallesTemp(
-      orden.detalles.map(
-        ({ detalle_orden_venta_id, orden_venta_id, ...rest }) => rest
-      )
-    );
+    setDetallesTemp(orden.detalle || []);
     setIsDialogOpen(true);
   };
 
@@ -221,10 +183,10 @@ const clientes = [
   const handleDelete = async (orden_venta_id: number) => {
     try {
       // Si hay endpoint de deleteVenta, usarlo aquí
-      // await apiClient.deleteVenta(orden_venta_id);
+      await apiClient.deleteVenta(orden_venta_id);
       const data = await apiClient.getVentas();
       setOrdenesVenta(data as OrdenVenta[]);
-    } catch (err) {
+    } catch {
       setError("Error al eliminar venta");
     }
   };
@@ -263,7 +225,7 @@ const clientes = [
 
   const getProductoNombre = (producto_id: number) => {
     const producto = productos.find((p) => p.producto_id === producto_id);
-    return producto ? producto.nombre : `Producto #${producto_id}`;
+    return producto ? producto.nombre_modelo : `Producto #${producto_id}`;
   };
 
   const ordenesConRetraso = ordenesVenta.filter(
@@ -303,7 +265,7 @@ const clientes = [
                   : "Completa los datos de la nueva orden de venta"}
               </DialogDescription>
             </DialogHeader>
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="cliente_id">Cliente</Label>
@@ -312,18 +274,26 @@ const clientes = [
                     name="cliente_id"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                     defaultValue={
-                      editingOrden?.cliente_id || clientes[0].cliente_id
+                      editingOrden?.cliente_id ||
+                      (clientesLoaded ? clientes[0].cliente_id : "")
                     }
                     required
+                    disabled={!clientesLoaded}
                   >
-                    {clientes.map((cliente) => (
-                      <option
-                        key={cliente.cliente_id}
-                        value={cliente.cliente_id}
-                      >
-                        {cliente.nombre} - {cliente.contacto}
+                    {!clientesLoaded ? (
+                      <option value="" disabled>
+                        Cargando clientes...
                       </option>
-                    ))}
+                    ) : (
+                      clientes.map((cliente) => (
+                        <option
+                          key={cliente.cliente_id}
+                          value={cliente.cliente_id}
+                        >
+                          {cliente.nombre} - {cliente.contacto}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -352,8 +322,11 @@ const clientes = [
                     name="fecha_pedido"
                     type="date"
                     defaultValue={
-                      editingOrden?.fecha_pedido ||
-                      new Date().toISOString().split("T")[0]
+                      editingOrden?.fecha_pedido
+                        ? new Date(editingOrden.fecha_pedido)
+                            .toISOString()
+                            .slice(0, 10)
+                        : ""
                     }
                     required
                   />
@@ -366,7 +339,13 @@ const clientes = [
                     id="fecha_entrega_estimada"
                     name="fecha_entrega_estimada"
                     type="date"
-                    defaultValue={editingOrden?.fecha_entrega_estimada || ""}
+                    defaultValue={
+                      editingOrden?.fecha_entrega_estimada
+                        ? new Date(editingOrden.fecha_entrega_estimada)
+                            .toISOString()
+                            .slice(0, 10)
+                        : ""
+                    }
                     required
                   />
                 </div>
@@ -376,7 +355,13 @@ const clientes = [
                     id="fecha_entrega_real"
                     name="fecha_entrega_real"
                     type="date"
-                    defaultValue={editingOrden?.fecha_entrega_real || ""}
+                    defaultValue={
+                      editingOrden?.fecha_entrega_real
+                        ? new Date(editingOrden.fecha_entrega_real)
+                            .toISOString()
+                            .slice(0, 10)
+                        : ""
+                    }
                   />
                 </div>
               </div>
@@ -406,7 +391,7 @@ const clientes = [
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Producto</Label>
                         <select
@@ -425,7 +410,7 @@ const clientes = [
                               key={producto.producto_id}
                               value={producto.producto_id}
                             >
-                              {producto.nombre}
+                              {producto.nombre_modelo}
                             </option>
                           ))}
                         </select>
@@ -445,44 +430,20 @@ const clientes = [
                           }
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Precio Unitario</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={detalle.precio_unitario_venta}
-                          onChange={(e) =>
-                            actualizarDetalle(
-                              index,
-                              "precio_unitario_venta",
-                              Number.parseFloat(e.target.value)
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-medium">
-                        Subtotal: S/{" "}
-                        {(
-                          detalle.cantidad * detalle.precio_unitario_venta
-                        ).toFixed(2)}
-                      </span>
                     </div>
                   </div>
                 ))}
 
                 {detallesTemp.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
-                    No hay productos agregados. Haz clic en "Agregar Producto"
-                    para comenzar.
+                    No hay productos agregados. Haz clic en &ldquo;Agregar
+                    Producto&rdquo; para comenzar.
                   </div>
                 )}
 
                 {detallesTemp.length > 0 && (
                   <div className="text-right text-lg font-bold">
-                    Total de la Orden: S/ {calcularTotalDetalles().toFixed(2)}
+                    Total de la Orden: {calcularTotalDetalles()}
                   </div>
                 )}
               </div>
@@ -512,25 +473,16 @@ const clientes = [
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Entregadas</CardTitle>
-            <Package className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">Demoradas</CardTitle>
+            <Package className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {ordenesVenta.filter((o) => o.estado === "Entregada").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En Proceso</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-red-600">
               {
-                ordenesVenta.filter((o) =>
-                  ["Confirmada", "En Producción", "Lista"].includes(o.estado)
+                ordenesVenta.filter(
+                  (o) =>
+                    o.fecha_entrega_real == null &&
+                    o.fecha_entrega_estimada >= new Date()
                 ).length
               }
             </div>
@@ -538,18 +490,12 @@ const clientes = [
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Ingresos Totales
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">En Proceso</CardTitle>
+            <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              S/{" "}
-              {ordenesVenta
-                .filter((o) => o.estado === "Entregada")
-                .reduce((acc, o) => acc + o.total_venta, 0)
-                .toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+            <div className="text-2xl font-bold text-green-600">
+              {ordenesVenta.filter((o) => o.fecha_entrega_real == null).length}
             </div>
           </CardContent>
         </Card>
@@ -632,8 +578,7 @@ const clientes = [
                         {getClienteNombre(orden.cliente_id)}
                       </div>
                       <div className="text-sm text-muted-foreground md:hidden">
-                        #{orden.orden_venta_id} • S/{" "}
-                        {orden.total_venta.toFixed(2)}
+                        #{orden.orden_venta_id}
                       </div>
                       <div className="lg:hidden text-sm text-muted-foreground">
                         {formatDate(orden.fecha_pedido)}
@@ -672,9 +617,6 @@ const clientes = [
                           </div>
                         )}
                     </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    S/ {orden.total_venta.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
@@ -766,7 +708,7 @@ const clientes = [
               <div>
                 <Label className="text-sm font-medium">Productos</Label>
                 <div className="mt-2 space-y-2">
-                  {viewingOrden.detalles.map((detalle) => (
+                  {viewingOrden.detalle?.map((detalle) => (
                     <div
                       key={detalle.detalle_orden_venta_id}
                       className="p-3 bg-gray-50 rounded"
@@ -777,25 +719,12 @@ const clientes = [
                             {getProductoNombre(detalle.producto_id)}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            Cantidad: {detalle.cantidad} × S/{" "}
-                            {detalle.precio_unitario_venta.toFixed(2)}
+                            Cantidad: {detalle.cantidad}
                           </div>
                         </div>
-                        <span className="font-medium">
-                          S/{" "}
-                          {(
-                            detalle.cantidad * detalle.precio_unitario_venta
-                          ).toFixed(2)}
-                        </span>
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-              <div className="border-t pt-4">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total de la Orden:</span>
-                  <span>S/ {viewingOrden.total_venta.toFixed(2)}</span>
                 </div>
               </div>
             </div>

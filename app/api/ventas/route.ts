@@ -1,32 +1,41 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/database"
+import { type NextRequest, NextResponse } from "next/server";
+import { pool } from "@/lib/database";
 
 export async function GET() {
   try {
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     const result = await client.query(`
       SELECT 
-        ov.*,
+        ov.orden_venta_id,
+        ov.cliente_id,
+        ov.fecha_pedido,
+        ov.fecha_entrega_estimada,
+        ov.fecha_entrega_real,
+        ov.estado,
+        ov.total_venta,
         c.nombre as cliente_nombre,
         c.contacto as cliente_contacto
       FROM Ordenes_Venta ov
       JOIN Clientes c ON ov.cliente_id = c.cliente_id
       ORDER BY ov.fecha_pedido DESC
-    `)
+    `);
 
-    client.release()
+    client.release();
 
-    return NextResponse.json(result.rows)
+    return NextResponse.json(result.rows);
   } catch (error) {
-    console.error("Error fetching ventas:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error fetching ventas:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await request.json();
     const {
       cliente_id,
       fecha_pedido,
@@ -35,12 +44,12 @@ export async function POST(request: NextRequest) {
       estado,
       total_venta,
       detalles = [],
-    } = body
+    } = body;
 
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     try {
-      await client.query("BEGIN")
+      await client.query("BEGIN");
 
       // Insertar orden de venta
       const ordenResult = await client.query(
@@ -51,34 +60,44 @@ export async function POST(request: NextRequest) {
         ) VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `,
-        [cliente_id, fecha_pedido, fecha_entrega_estimada, fecha_entrega_real, estado, total_venta],
-      )
+        [
+          cliente_id,
+          fecha_pedido,
+          fecha_entrega_estimada,
+          fecha_entrega_real,
+          estado,
+          total_venta,
+        ]
+      );
 
-      const nuevaOrden = ordenResult.rows[0]
+      const nuevaOrden = ordenResult.rows[0];
 
       // Insertar detalles de la orden
       for (const detalle of detalles) {
         await client.query(
           `
           INSERT INTO Detalle_Orden_Venta (
-            orden_venta_id, producto_id, cantidad, precio_unitario_venta
-          ) VALUES ($1, $2, $3, $4)
+            orden_venta_id, producto_id, cantidad
+          ) VALUES ($1, $2, $3)
         `,
-          [nuevaOrden.orden_venta_id, detalle.producto_id, detalle.cantidad, detalle.precio_unitario_venta],
-        )
+          [nuevaOrden.orden_venta_id, detalle.producto_id, detalle.cantidad]
+        );
       }
 
-      await client.query("COMMIT")
-      client.release()
+      await client.query("COMMIT");
+      client.release();
 
-      return NextResponse.json(nuevaOrden, { status: 201 })
+      return NextResponse.json(nuevaOrden, { status: 201 });
     } catch (error) {
-      await client.query("ROLLBACK")
-      client.release()
-      throw error
+      await client.query("ROLLBACK");
+      client.release();
+      throw error;
     }
   } catch (error) {
-    console.error("Error creating venta:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error creating venta:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }

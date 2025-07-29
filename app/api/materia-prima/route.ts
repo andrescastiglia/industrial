@@ -1,31 +1,44 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/database"
+import { type NextRequest, NextResponse } from "next/server";
+import { pool } from "@/lib/database";
 
 export async function GET() {
   try {
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     const result = await client.query(`
       SELECT 
-        mp.*,
+        mp.materia_prima_id,
+        mp.nombre,
+        mp.descripcion,
+        mp.referencia_proveedor,
+        mp.unidad_medida,
+        mp.stock_actual,
+        mp.punto_pedido,
+        mp.tiempo_entrega_dias,
+        mp.longitud_estandar_m,
+        mp.color,
+        mp.id_tipo_componente,
         tc.nombre_tipo
       FROM Materia_Prima mp
       LEFT JOIN Tipo_Componente tc ON mp.id_tipo_componente = tc.tipo_componente_id
       ORDER BY mp.nombre
-    `)
+    `);
 
-    client.release()
+    client.release();
 
-    return NextResponse.json(result.rows)
+    return NextResponse.json(result.rows);
   } catch (error) {
-    console.error("Error fetching materia prima:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error fetching materia prima:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await request.json();
     const {
       nombre,
       descripcion,
@@ -37,9 +50,9 @@ export async function POST(request: NextRequest) {
       longitud_estandar_m,
       color,
       id_tipo_componente,
-    } = body
+    } = body;
 
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     const result = await client.query(
       `
@@ -61,14 +74,17 @@ export async function POST(request: NextRequest) {
         longitud_estandar_m,
         color,
         id_tipo_componente,
-      ],
-    )
+      ]
+    );
 
-    client.release()
+    client.release();
 
-    return NextResponse.json(result.rows[0], { status: 201 })
+    return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
-    console.error("Error creating materia prima:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error creating materia prima:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }

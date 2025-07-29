@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useProductos, useMateriaPrima } from "@/hooks/useApi";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,72 +31,38 @@ import { Plus, Edit, Trash2, Search, Package, Layers, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ComponenteProducto, MateriaPrima, Producto } from "@/lib/database";
+import { useProductos } from "@/hooks/useProductos";
+import { useMateriaPrima } from "@/hooks/useMateriaPrima";
 
-interface Producto {
-  producto_id: number;
-  nombre_modelo: string;
-  descripcion: string;
-  ancho: number;
-  alto: number;
-  color: string;
-  tipo_accionamiento: string;
-  // Campos calculados
-  componentes?: ComponenteProducto[];
-  costo_total?: number;
-  fecha_creacion?: string;
-}
-
-interface ComponenteProducto {
-  producto_id: number;
-  materia_prima_id: number;
-  cantidad_necesaria: number;
-  angulo_corte: string;
-  // Datos de la materia prima para mostrar
-  nombre_material?: string;
-  unidad_medida?: string;
-  precio_unitario?: number;
-  stock_disponible?: number;
-  referencia_proveedor?: string;
-}
-
-interface MateriaPrima {
-  materia_prima_id: number;
-  nombre: string;
-  unidad_medida: string;
-  stock_actual: number;
-  precio_unitario?: number;
-  referencia_proveedor: string;
-}
-
+export default function ProductosPage() {
   const {
     productos,
     createProducto,
     updateProducto,
     deleteProducto,
     refetch: refetchProductos,
-    loading: loadingProductos,
-    error: errorProductos,
   } = useProductos() as {
     productos: Producto[];
-    createProducto: (data: any) => Promise<any>;
-    updateProducto: (id: number, data: any) => Promise<any>;
-    deleteProducto: (id: number) => Promise<any>;
+    createProducto: (
+      producto: Producto,
+      componentes: ComponenteProducto[]
+    ) => Promise<Producto>;
+    updateProducto: (
+      id: number,
+      producto: Producto,
+      componentes: ComponenteProducto[]
+    ) => Promise<Producto>;
+    deleteProducto: (id: number) => Promise<void>;
     refetch: () => void;
-    loading: boolean;
-    error: string | null;
   };
 
-  const {
-    materiales: materiaPrimaDisponible,
-    loading: loadingMateriaPrima,
-    error: errorMateriaPrima,
-    refetch: refetchMateriaPrima,
-  } = useMateriaPrima() as {
+  const { materiales: materiaPrimaDisponible } = useMateriaPrima() as {
     materiales: MateriaPrima[];
-    loading: boolean;
-    error: string | null;
-    refetch: () => void;
   };
+  // Ensure materiaPrimaDisponible is loaded before using
+  const materiaPrimaLoaded =
+    materiaPrimaDisponible && materiaPrimaDisponible.length > 0;
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
@@ -120,33 +85,37 @@ interface MateriaPrima {
   );
 
   const handleSubmit = async (formData: FormData) => {
-    const productoData = {
-      producto_id: editingProducto?.producto_id,
+    const productoData: Producto = {
+      producto_id: editingProducto?.producto_id ?? 0,
       nombre_modelo: formData.get("nombre_modelo") as string,
       descripcion: formData.get("descripcion") as string,
       ancho: Number.parseFloat(formData.get("ancho") as string),
       alto: Number.parseFloat(formData.get("alto") as string),
       color: formData.get("color") as string,
       tipo_accionamiento: formData.get("tipo_accionamiento") as string,
-      componentes: componentesTemp,
-      costo_total: componentesTemp.reduce(
-        (acc, comp) =>
-          acc + comp.cantidad_necesaria * (comp.precio_unitario || 0),
-        0
-      ),
-      fecha_creacion:
-        editingProducto?.fecha_creacion ||
-        new Date().toISOString().split("T")[0],
     };
+    const componenteData: ComponenteProducto[] = componentesTemp.map(
+      (comp) => ({
+        ...comp,
+        cantidad_necesaria:
+          typeof comp.cantidad_necesaria === "string"
+            ? Number.parseFloat(comp.cantidad_necesaria)
+            : comp.cantidad_necesaria,
+      })
+    );
 
     try {
       if (editingProducto) {
-        await updateProducto(editingProducto.producto_id, productoData);
+        await updateProducto(
+          editingProducto.producto_id,
+          productoData,
+          componenteData
+        );
       } else {
-        await createProducto(productoData);
+        await createProducto(productoData, componenteData);
       }
       refetchProductos();
-    } catch (err) {
+    } catch {
       // Puedes mostrar error si lo deseas
     }
     setIsDialogOpen(false);
@@ -169,7 +138,7 @@ interface MateriaPrima {
     try {
       await deleteProducto(id);
       refetchProductos();
-    } catch (err) {
+    } catch {
       // Puedes mostrar error si lo deseas
     }
   };
@@ -181,6 +150,7 @@ interface MateriaPrima {
   };
 
   const agregarComponente = () => {
+    if (!materiaPrimaLoaded) return;
     const nuevoComponente: ComponenteProducto = {
       producto_id: editingProducto?.producto_id || 0,
       materia_prima_id: materiaPrimaDisponible[0].materia_prima_id,
@@ -188,19 +158,24 @@ interface MateriaPrima {
       angulo_corte: "90°",
       nombre_material: materiaPrimaDisponible[0].nombre,
       unidad_medida: materiaPrimaDisponible[0].unidad_medida,
-      precio_unitario: materiaPrimaDisponible[0].precio_unitario,
-      stock_disponible: materiaPrimaDisponible[0].stock_actual,
+      stock_actual: materiaPrimaDisponible[0].stock_actual,
       referencia_proveedor: materiaPrimaDisponible[0].referencia_proveedor,
     };
     setComponentesTemp([...componentesTemp, nuevoComponente]);
   };
 
-  const actualizarComponente = (index: number, campo: string, valor: any) => {
+  const actualizarComponente = (
+    index: number,
+    campo: string,
+    valor: string | number
+  ) => {
     const nuevosComponentes = [...componentesTemp];
 
     if (campo === "materia_prima_id") {
       const materiaPrima = materiaPrimaDisponible.find(
-        (mp) => mp.materia_prima_id === Number.parseInt(valor)
+        (mp) =>
+          mp.materia_prima_id ===
+          (typeof valor === "string" ? Number.parseInt(valor) : valor)
       );
       if (materiaPrima) {
         nuevosComponentes[index] = {
@@ -208,8 +183,7 @@ interface MateriaPrima {
           materia_prima_id: materiaPrima.materia_prima_id,
           nombre_material: materiaPrima.nombre,
           unidad_medida: materiaPrima.unidad_medida,
-          precio_unitario: materiaPrima.precio_unitario,
-          stock_disponible: materiaPrima.stock_actual,
+          stock_actual: materiaPrima.stock_actual,
           referencia_proveedor: materiaPrima.referencia_proveedor,
         };
       }
@@ -217,7 +191,11 @@ interface MateriaPrima {
       nuevosComponentes[index] = {
         ...nuevosComponentes[index],
         [campo]:
-          campo === "cantidad_necesaria" ? Number.parseFloat(valor) : valor,
+          campo === "cantidad_necesaria"
+            ? typeof valor === "string"
+              ? Number.parseFloat(valor)
+              : valor
+            : valor,
       };
     }
 
@@ -252,7 +230,7 @@ interface MateriaPrima {
     if (!producto.componentes) return true;
 
     return producto.componentes.every(
-      (comp) => (comp.stock_disponible || 0) >= comp.cantidad_necesaria
+      (comp) => (comp.stock_actual || 0) >= comp.cantidad_necesaria
     );
   };
 
@@ -421,7 +399,7 @@ interface MateriaPrima {
                               ))}
                             </select>
                             <div className="text-xs text-muted-foreground mt-1">
-                              Stock: {componente.stock_disponible}{" "}
+                              Stock: {componente.stock_actual}{" "}
                               {componente.unidad_medida}
                             </div>
                           </div>
@@ -473,13 +451,10 @@ interface MateriaPrima {
                             <Label className="text-sm">Costo</Label>
                             <div className="h-9 flex items-center text-sm font-medium">
                               S/{" "}
-                              {(
-                                componente.cantidad_necesaria *
-                                (componente.precio_unitario || 0)
-                              ).toFixed(2)}
+                              {(componente.cantidad_necesaria * 0).toFixed(2)}
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              @ S/ {componente.precio_unitario?.toFixed(2)}
+                              @ S/ {0}
                             </div>
                           </div>
 
@@ -497,13 +472,12 @@ interface MateriaPrima {
                         </div>
 
                         {componente.cantidad_necesaria >
-                          (componente.stock_disponible || 0) && (
+                          (componente.stock_actual || 0) && (
                           <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
                             ⚠️ Stock insuficiente: Se requieren{" "}
                             {componente.cantidad_necesaria}{" "}
                             {componente.unidad_medida}, disponible:{" "}
-                            {componente.stock_disponible}{" "}
-                            {componente.unidad_medida}
+                            {componente.stock_actual} {componente.unidad_medida}
                           </div>
                         )}
                       </Card>
@@ -511,8 +485,8 @@ interface MateriaPrima {
 
                     {componentesTemp.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
-                        No hay componentes agregados. Haz clic en "Agregar
-                        Componente" para comenzar.
+                        No hay componentes agregados. Haz clic en &ldquo;Agregar
+                        Componente&rdquo; para comenzar.
                       </div>
                     )}
 
@@ -527,9 +501,7 @@ interface MateriaPrima {
                             {componentesTemp
                               .reduce(
                                 (acc, comp) =>
-                                  acc +
-                                  comp.cantidad_necesaria *
-                                    (comp.precio_unitario || 0),
+                                  acc + comp.cantidad_necesaria * 0,
                                 0
                               )
                               .toFixed(2)}
@@ -590,21 +562,6 @@ interface MateriaPrima {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Valor Productos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              S/{" "}
-              {productos
-                .reduce((acc, p) => acc + (p.costo_total || 0), 0)
-                .toLocaleString("es-PE", { minimumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <Card>
@@ -657,8 +614,7 @@ interface MateriaPrima {
                         </div>
                         <div className="md:hidden mt-1 space-y-1">
                           <div className="text-sm font-medium">
-                            S/ {producto.costo_total?.toFixed(2)} •{" "}
-                            {producto.ancho}m × {producto.alto}m
+                            S/ {0} • {producto.ancho}m × {producto.alto}m
                           </div>
                           <Badge
                             variant={
@@ -689,11 +645,6 @@ interface MateriaPrima {
                         <span className="text-sm">
                           {producto.componentes?.length || 0}
                         </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="font-medium">
-                        S/ {producto.costo_total?.toFixed(2)}
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
@@ -786,12 +737,6 @@ interface MateriaPrima {
                     m²
                   </p>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium">Costo Total</Label>
-                  <p className="text-sm font-medium text-green-600">
-                    S/ {viewingProducto.costo_total?.toFixed(2)}
-                  </p>
-                </div>
               </div>
 
               <div>
@@ -825,23 +770,12 @@ interface MateriaPrima {
                             <span className="font-medium"> Corte:</span>{" "}
                             {componente.angulo_corte} |
                             <span className="font-medium"> Stock:</span>{" "}
-                            {componente.stock_disponible}{" "}
-                            {componente.unidad_medida}
+                            {componente.stock_actual} {componente.unidad_medida}
                           </div>
                         </div>
                         <div className="text-right ml-4">
-                          <div className="font-medium">
-                            S/{" "}
-                            {(
-                              componente.cantidad_necesaria *
-                              (componente.precio_unitario || 0)
-                            ).toFixed(2)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            @ S/ {componente.precio_unitario?.toFixed(2)}
-                          </div>
                           {componente.cantidad_necesaria >
-                            (componente.stock_disponible || 0) && (
+                            (componente.stock_actual || 0) && (
                             <Badge
                               variant="destructive"
                               className="mt-1 text-xs"

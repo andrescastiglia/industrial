@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useApi } from "@/hooks/useApi";
 import {
   Dialog,
   DialogContent,
@@ -30,19 +29,18 @@ import {
 } from "@/components/ui/card";
 import { Plus, Edit, Trash2, Search, Users, Phone, Mail } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-
-interface Cliente {
-  cliente_id: number;
-  nombre: string;
-  contacto: string;
-  direccion: string;
-  telefono: string;
-  email: string;
-}
+import { Cliente } from "@/lib/database";
+import { useClientes } from "@/hooks/useClientes";
 
 export default function ClientesPage() {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const { get, post, put, del } = useApi();
+  const { clientes, refetch, createCliente, updateCliente, deleteCliente } =
+    useClientes() as {
+      clientes: Cliente[];
+      refetch: () => Promise<void>;
+      createCliente: (data: Partial<Cliente>) => Promise<Cliente>;
+      updateCliente: (id: number, data: Partial<Cliente>) => Promise<Cliente>;
+      deleteCliente: (id: number) => Promise<void>;
+    };
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
@@ -56,17 +54,14 @@ export default function ClientesPage() {
       cliente.direccion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  useEffect(() => {
-    const loadClientes = async () => {
-      const data = await get("/api/clientes");
-      if (data) setClientes(data);
-    };
-    loadClientes();
-  }, [get]);
+  // El hook useClientes ya carga los datos automáticamente
 
-  const handleSubmit = async (formData: FormData) => {
-    const clienteData = {
-      cliente_id: editingCliente?.cliente_id,
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const clienteData: Cliente = {
+      cliente_id: editingCliente ? editingCliente.cliente_id : 0,
       nombre: formData.get("nombre") as string,
       contacto: formData.get("contacto") as string,
       direccion: formData.get("direccion") as string,
@@ -74,25 +69,18 @@ export default function ClientesPage() {
       email: formData.get("email") as string,
     };
 
-    if (editingCliente) {
-      const updated = await put(
-        `/api/clientes/${editingCliente.cliente_id}`,
-        clienteData
-      );
-      if (updated) {
-        const data = await get("/api/clientes");
-        if (data) setClientes(data);
+    try {
+      if (editingCliente) {
+        await updateCliente(editingCliente.cliente_id, clienteData);
+      } else {
+        await createCliente(clienteData);
       }
-    } else {
-      const created = await post("/api/clientes", clienteData);
-      if (created) {
-        const data = await get("/api/clientes");
-        if (data) setClientes(data);
-      }
+      refetch();
+      setIsDialogOpen(false);
+      setEditingCliente(null);
+    } catch {
+      // Manejo de error opcional
     }
-
-    setIsDialogOpen(false);
-    setEditingCliente(null);
   };
 
   const handleEdit = (cliente: Cliente) => {
@@ -101,10 +89,11 @@ export default function ClientesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    const deleted = await del(`/api/clientes/${id}`);
-    if (deleted) {
-      const data = await get("/api/clientes");
-      if (data) setClientes(data);
+    try {
+      await deleteCliente(id);
+      refetch();
+    } catch {
+      // Manejo de error opcional
     }
   };
 
@@ -149,7 +138,7 @@ export default function ClientesPage() {
                   : "Completa los datos del nuevo cliente"}
               </DialogDescription>
             </DialogHeader>
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre de la Empresa *</Label>
                 <Input
@@ -235,13 +224,15 @@ export default function ClientesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Empresas S.A.C.
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Empresas S.A.</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {clientes.filter((c) => c.nombre.includes("S.A.C.")).length}
+              {
+                clientes.filter(
+                  (c) => c.nombre.includes("S.A") || c.nombre.includes("SA")
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
@@ -253,7 +244,11 @@ export default function ClientesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {clientes.filter((c) => c.nombre.includes("S.R.L.")).length}
+              {
+                clientes.filter(
+                  (c) => c.nombre.includes("S.R.L.") || c.nombre.includes("SRL")
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
@@ -268,7 +263,12 @@ export default function ClientesPage() {
               {
                 clientes.filter(
                   (c) =>
-                    c.nombre.includes("E.I.R.L.") || c.nombre.includes("S.A.")
+                    !(
+                      c.nombre.includes("S.R.L.") ||
+                      c.nombre.includes("S.A.") ||
+                      c.nombre.includes("SRL") ||
+                      c.nombre.includes("SA")
+                    )
                 ).length
               }
             </div>

@@ -1,41 +1,40 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/database"
+import { type NextRequest, NextResponse } from "next/server";
+import { pool } from "@/lib/database";
 
 export async function GET() {
   try {
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     const result = await client.query(`
       SELECT 
-        op.*,
-        p.nombre_modelo,
-        p.descripcion as producto_descripcion,
-        p.ancho,
-        p.alto,
-        p.color as producto_color,
-        p.tipo_accionamiento,
-        ov.cliente_id,
-        c.nombre as cliente_nombre,
-        c.contacto as cliente_contacto
+      op.orden_produccion_id,
+        op.orden_venta_id,
+        op.producto_id,
+        op.cantidad_a_producir,
+        op.fecha_creacion,
+        op.fecha_inicio,
+        op.fecha_fin_estimada,
+        op.fecha_fin_real,
+        op.estado
       FROM Ordenes_Produccion op
-      LEFT JOIN Productos p ON op.producto_id = p.producto_id
-      LEFT JOIN Ordenes_Venta ov ON op.orden_venta_id = ov.orden_venta_id
-      LEFT JOIN Clientes c ON ov.cliente_id = c.cliente_id
       ORDER BY op.fecha_creacion DESC
-    `)
+    `);
 
-    client.release()
+    client.release();
 
-    return NextResponse.json(result.rows)
+    return NextResponse.json(result.rows);
   } catch (error) {
-    console.error("Error fetching ordenes produccion:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error fetching ordenes produccion:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await request.json();
     const {
       orden_venta_id,
       producto_id,
@@ -46,12 +45,12 @@ export async function POST(request: NextRequest) {
       fecha_fin_real,
       estado,
       consumos = [],
-    } = body
+    } = body;
 
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     try {
-      await client.query("BEGIN")
+      await client.query("BEGIN");
 
       // Insertar orden de producción
       const ordenResult = await client.query(
@@ -71,10 +70,10 @@ export async function POST(request: NextRequest) {
           fecha_fin_estimada,
           fecha_fin_real,
           estado,
-        ],
-      )
+        ]
+      );
 
-      const nuevaOrden = ordenResult.rows[0]
+      const nuevaOrden = ordenResult.rows[0];
 
       // Insertar consumos de materia prima
       for (const consumo of consumos) {
@@ -98,21 +97,24 @@ export async function POST(request: NextRequest) {
             consumo.cantidad_usada,
             consumo.merma_calculada,
             consumo.fecha_registro,
-          ],
-        )
+          ]
+        );
       }
 
-      await client.query("COMMIT")
-      client.release()
+      await client.query("COMMIT");
+      client.release();
 
-      return NextResponse.json(nuevaOrden, { status: 201 })
+      return NextResponse.json(nuevaOrden, { status: 201 });
     } catch (error) {
-      await client.query("ROLLBACK")
-      client.release()
-      throw error
+      await client.query("ROLLBACK");
+      client.release();
+      throw error;
     }
   } catch (error) {
-    console.error("Error creating orden produccion:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error creating orden produccion:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }

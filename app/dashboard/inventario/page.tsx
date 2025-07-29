@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useApi, useTiposComponente } from "@/hooks/useApi";
+import { useState } from "react";
+import { useTiposComponente } from "@/hooks/useTiposComponente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,71 +34,21 @@ import {
   AlertTriangle,
   Package,
   Clock,
-  Layers,
-  TrendingUp,
-  TrendingDown,
-  RotateCcw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { MateriaPrima, TipoComponente } from "@/lib/database";
+import { useMateriaPrima } from "@/hooks/useMateriaPrima";
 
-interface TipoComponente {
-  tipo_componente_id: number;
-  nombre_tipo: string;
-}
-
-interface MateriaPrima {
-  materia_prima_id: number;
-  nombre: string;
-  descripcion: string;
-  referencia_proveedor: string;
-  unidad_medida: string;
-  stock_actual: number;
-  punto_pedido: number;
-  tiempo_entrega_dias: number;
-  longitud_estandar_m: number;
-  color: string;
-  id_tipo_componente: number;
-}
-
-interface MovimientoInventario {
-  movimiento_id: number;
-  materia_prima_id: number;
-  tipo_movimiento: "Entrada" | "Salida" | "Ajuste";
-  cantidad: number;
-  motivo: string;
-  fecha: string;
-  usuario: string;
-}
-
-  const {
-    tipos: tiposComponente,
-    loading: loadingTipos,
-    error: errorTipos,
-    refetch: refetchTipos,
-  } = useTiposComponente() as {
+export default function InventarioPage() {
+  const { tipos: tiposComponente } = useTiposComponente() as {
     tipos: TipoComponente[];
-    loading: boolean;
-    error: string | null;
-    refetch: () => void;
   };
-  const [materiaPrima, setMateriaPrima] = useState<MateriaPrima[]>([]);
-  const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
-  const { get, post } = useApi();
+  const { materiales: materiaPrima, updateMaterial } = useMateriaPrima();
   const [searchTerm, setSearchTerm] = useState("");
   const [isMovimientoDialogOpen, setIsMovimientoDialogOpen] = useState(false);
   const [materialSeleccionado, setMaterialSeleccionado] =
     useState<MateriaPrima | null>(null);
-
-  useEffect(() => {
-    const loadInventario = async () => {
-      const data = await get("/api/inventario");
-      if (data) setMateriaPrima(data);
-      const movs = await get("/api/inventario/movimientos");
-      if (movs) setMovimientos(movs);
-    };
-    loadInventario();
-  }, [get]);
 
   const filteredMateriales = materiaPrima.filter(
     (material) =>
@@ -131,28 +81,28 @@ interface MovimientoInventario {
       | "Salida"
       | "Ajuste";
     const cantidad = Number.parseFloat(formData.get("cantidad") as string);
-    const motivo = formData.get("motivo") as string;
-    const movimientoData = {
-      materia_prima_id: materialSeleccionado.materia_prima_id,
-      tipo_movimiento: tipoMovimiento,
-      cantidad,
-      motivo,
-    };
-    const res = await post("/api/inventario/movimientos", movimientoData);
-    if (res) {
-      const data = await get("/api/inventario");
-      if (data) setMateriaPrima(data);
-      const movs = await get("/api/inventario/movimientos");
-      if (movs) setMovimientos(movs);
+    let nuevoStock = materialSeleccionado.stock_actual;
+    if (tipoMovimiento === "Entrada") {
+      nuevoStock += cantidad;
+    } else if (tipoMovimiento === "Salida") {
+      nuevoStock -= cantidad;
+      if (nuevoStock < 0) nuevoStock = 0;
+    } else if (tipoMovimiento === "Ajuste") {
+      nuevoStock = cantidad;
     }
-    setIsMovimientoDialogOpen(false);
-    setMaterialSeleccionado(null);
+    try {
+      await updateMaterial(materialSeleccionado.materia_prima_id, {
+        ...materialSeleccionado,
+        stock_actual: nuevoStock,
+      });
+      setIsMovimientoDialogOpen(false);
+      setMaterialSeleccionado(null);
+    } catch {
+      // Manejo de error opcional
+    }
   };
 
-  const abrirMovimientoDialog = (
-    material: MateriaPrima,
-    _tipoMovimiento: "Entrada" | "Salida"
-  ) => {
+  const abrirMovimientoDialog = (material: MateriaPrima) => {
     setMaterialSeleccionado(material);
     setIsMovimientoDialogOpen(true);
   };
@@ -219,23 +169,6 @@ interface MovimientoInventario {
     );
   };
 
-  const calcularValorInventario = () => {
-    return materiaPrima.reduce((acc, m) => acc + m.stock_actual, 0);
-  };
-
-  const getMovimientoIcon = (tipo: string) => {
-    switch (tipo) {
-      case "Entrada":
-        return <TrendingUp className="h-4 w-4 text-green-600" />;
-      case "Salida":
-        return <TrendingDown className="h-4 w-4 text-red-600" />;
-      case "Ajuste":
-        return <RotateCcw className="h-4 w-4 text-blue-600" />;
-      default:
-        return <Package className="h-4 w-4" />;
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -300,24 +233,6 @@ interface MovimientoInventario {
               {materialesSinStock.length}
             </div>
             <p className="text-xs text-muted-foreground">Agotados</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Movimientos Hoy
-            </CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {
-                movimientos.filter(
-                  (m) => m.fecha === new Date().toISOString().split("T")[0]
-                ).length
-              }
-            </div>
-            <p className="text-xs text-muted-foreground">Transacciones</p>
           </CardContent>
         </Card>
       </div>
@@ -475,7 +390,6 @@ interface MovimientoInventario {
                   Punto Pedido
                 </TableHead>
                 <TableHead className="hidden lg:table-cell">Color</TableHead>
-                <TableHead className="hidden md:table-cell">Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -535,19 +449,12 @@ interface MovimientoInventario {
                     <TableCell className="hidden lg:table-cell">
                       {getColorBadge(material.color)}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <Badge variant={stockStatus.variant}>
-                        {stockStatus.status}
-                      </Badge>
-                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() =>
-                            abrirMovimientoDialog(material, "Entrada")
-                          }
+                          onClick={() => abrirMovimientoDialog(material)}
                           className="text-green-600 hover:text-green-700"
                           title="Entrada de Stock"
                         >
@@ -557,9 +464,7 @@ interface MovimientoInventario {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() =>
-                            abrirMovimientoDialog(material, "Salida")
-                          }
+                          onClick={() => abrirMovimientoDialog(material)}
                           className="text-red-600 hover:text-red-700"
                           disabled={material.stock_actual === 0}
                           title="Salida de Stock"
@@ -576,52 +481,6 @@ interface MovimientoInventario {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Últimos Movimientos */}
-      {movimientos.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Últimos Movimientos de Inventario</CardTitle>
-            <CardDescription>
-              Historial de entradas, salidas y ajustes de stock
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {movimientos.slice(0, 5).map((movimiento) => {
-                const material = materiaPrima.find(
-                  (m) => m.materia_prima_id === movimiento.materia_prima_id
-                );
-                return (
-                  <div
-                    key={movimiento.movimiento_id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded"
-                  >
-                    <div className="flex items-center space-x-3">
-                      {getMovimientoIcon(movimiento.tipo_movimiento)}
-                      <div>
-                        <div className="font-medium">{material?.nombre}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {movimiento.motivo}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium">
-                        {movimiento.tipo_movimiento === "Salida" ? "-" : "+"}
-                        {movimiento.cantidad} {material?.unidad_medida}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {movimiento.fecha} | {movimiento.usuario}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Dialog para Movimientos de Stock */}
       <Dialog

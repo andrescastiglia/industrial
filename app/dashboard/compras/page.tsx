@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useApi } from "@/hooks/useApi";
 import {
   Dialog,
   DialogContent,
@@ -35,44 +34,30 @@ import {
   Search,
   ShoppingCart,
   Calendar,
-  DollarSign,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-interface Compra {
-  compra_id: number;
-  proveedor_id: number;
-  fecha_pedido: string;
-  fecha_recepcion_estimada: string;
-  fecha_recepcion_real?: string;
-  estado: string;
-  total_compra: number;
-  cotizacion_ref: string;
-}
-
-interface Proveedor {
-  proveedor_id: number;
-  nombre: string;
-}
+import { useCompras } from "@/hooks/useCompras";
+import { useProveedores } from "@/hooks/useProveedores";
+import { Compra, Proveedor } from "@/lib/database";
 
 export default function ComprasPage() {
-  const [compras, setCompras] = useState<Compra[]>([]);
-  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const { get, post, put, del } = useApi();
+  const { compras, refetch, createCompra, updateCompra, deleteCompra } =
+    useCompras() as {
+      compras: Compra[];
+      refetch: () => void;
+      createCompra: (data: Partial<Compra>) => Promise<Compra>;
+      updateCompra: (id: number, data: Partial<Compra>) => Promise<Compra>;
+      deleteCompra: (id: number) => Promise<void>;
+    };
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCompra, setEditingCompra] = useState<Compra | null>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      const comprasData = await get("/api/compras");
-      if (comprasData) setCompras(comprasData);
-
-      const proveedoresData = await get("/api/proveedores");
-      if (proveedoresData) setProveedores(proveedoresData);
-    };
-    loadData();
-  }, [get]);
+  const { proveedores } = useProveedores() as {
+    proveedores: Proveedor[];
+  };
+  // Ensure proveedores is loaded before rendering
+  const proveedoresLoaded = proveedores && proveedores.length > 0;
 
   const filteredCompras = compras.filter((compra) => {
     const proveedor = proveedores.find(
@@ -86,51 +71,49 @@ export default function ComprasPage() {
     );
   });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("es-PE");
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("es-AR");
   };
 
-  const calcularDiasRetraso = (fechaEstimada: string, fechaReal?: string) => {
+  const calcularDiasRetraso = (fechaEstimada: Date, fechaReal?: Date) => {
     const estimada = new Date(fechaEstimada);
-    const actual = fechaReal ? new Date(fechaReal) : new Date();
+    const actual = fechaReal ?? new Date();
     const diffTime = actual.getTime() - estimada.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
 
-  const handleSubmit = async (formData: FormData) => {
-    const compraData = {
-      compra_id: editingCompra?.compra_id,
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const compraData: Compra = {
+      compra_id: editingCompra ? editingCompra.compra_id : 0,
       proveedor_id: Number(formData.get("proveedor_id")),
-      fecha_pedido: formData.get("fecha_pedido") as string,
-      fecha_recepcion_estimada: formData.get(
-        "fecha_recepcion_estimada"
-      ) as string,
-      fecha_recepcion_real: formData.get("fecha_recepcion_real") as string,
+      fecha_pedido: new Date(formData.get("fecha_pedido") as string),
+      fecha_recepcion_estimada: new Date(
+        formData.get("fecha_recepcion_estimada") as string
+      ),
+      fecha_recepcion_real: formData.get("fecha_recepcion_real")
+        ? new Date(formData.get("fecha_recepcion_real") as string)
+        : undefined,
       estado: formData.get("estado") as string,
       total_compra: Number(formData.get("total_compra")),
       cotizacion_ref: formData.get("cotizacion_ref") as string,
     };
 
-    if (editingCompra) {
-      const updated = await put(
-        `/api/compras/${editingCompra.compra_id}`,
-        compraData
-      );
-      if (updated) {
-        const data = await get("/api/compras");
-        if (data) setCompras(data);
+    try {
+      if (editingCompra) {
+        await updateCompra(editingCompra.compra_id, compraData);
+      } else {
+        await createCompra(compraData);
       }
-    } else {
-      const created = await post("/api/compras", compraData);
-      if (created) {
-        const data = await get("/api/compras");
-        if (data) setCompras(data);
-      }
+      refetch();
+      setIsDialogOpen(false);
+      setEditingCompra(null);
+    } catch {
+      // Manejo de error opcional
     }
-
-    setIsDialogOpen(false);
-    setEditingCompra(null);
   };
 
   const handleEdit = (compra: Compra) => {
@@ -139,10 +122,11 @@ export default function ComprasPage() {
   };
 
   const handleDelete = async (id: number) => {
-    const deleted = await del(`/api/compras/${id}`);
-    if (deleted) {
-      const data = await get("/api/compras");
-      if (data) setCompras(data);
+    try {
+      await deleteCompra(id);
+      refetch();
+    } catch {
+      // Manejo de error opcional
     }
   };
 
@@ -155,12 +139,6 @@ export default function ComprasPage() {
     switch (estado) {
       case "Pendiente":
         return <Badge variant="secondary">Pendiente</Badge>;
-      case "Confirmada":
-        return <Badge className="bg-blue-100 text-blue-800">Confirmada</Badge>;
-      case "En Tránsito":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800">En Tránsito</Badge>
-        );
       case "Recibida":
         return <Badge variant="default">Recibida</Badge>;
       case "Cancelada":
@@ -208,7 +186,7 @@ export default function ComprasPage() {
                   : "Completa los datos de la nueva compra"}
               </DialogDescription>
             </DialogHeader>
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="proveedor_id">Proveedor</Label>
                 <select
@@ -216,18 +194,26 @@ export default function ComprasPage() {
                   name="proveedor_id"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                   defaultValue={
-                    editingCompra?.proveedor_id || proveedores[0].proveedor_id
+                    editingCompra?.proveedor_id ||
+                    (proveedoresLoaded ? proveedores[0].proveedor_id : "")
                   }
                   required
+                  disabled={!proveedoresLoaded}
                 >
-                  {proveedores.map((proveedor) => (
-                    <option
-                      key={proveedor.proveedor_id}
-                      value={proveedor.proveedor_id}
-                    >
-                      {proveedor.nombre}
+                  {!proveedoresLoaded ? (
+                    <option value="" disabled>
+                      Cargando proveedores...
                     </option>
-                  ))}
+                  ) : (
+                    proveedores.map((proveedor) => (
+                      <option
+                        key={proveedor.proveedor_id}
+                        value={proveedor.proveedor_id}
+                      >
+                        {proveedor.nombre}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
               <div className="space-y-2">
@@ -253,8 +239,11 @@ export default function ComprasPage() {
                     name="fecha_pedido"
                     type="date"
                     defaultValue={
-                      editingCompra?.fecha_pedido ||
-                      new Date().toISOString().split("T")[0]
+                      editingCompra?.fecha_pedido
+                        ? new Date(editingCompra.fecha_pedido)
+                            .toISOString()
+                            .slice(0, 10)
+                        : ""
                     }
                     required
                   />
@@ -267,7 +256,13 @@ export default function ComprasPage() {
                     id="fecha_recepcion_estimada"
                     name="fecha_recepcion_estimada"
                     type="date"
-                    defaultValue={editingCompra?.fecha_recepcion_estimada || ""}
+                    defaultValue={
+                      editingCompra?.fecha_recepcion_estimada
+                        ? new Date(editingCompra.fecha_recepcion_estimada)
+                            .toISOString()
+                            .slice(0, 10)
+                        : ""
+                    }
                     required
                   />
                 </div>
@@ -279,7 +274,13 @@ export default function ComprasPage() {
                     id="fecha_recepcion_real"
                     name="fecha_recepcion_real"
                     type="date"
-                    defaultValue={editingCompra?.fecha_recepcion_real || ""}
+                    defaultValue={
+                      editingCompra?.fecha_recepcion_real
+                        ? new Date(editingCompra.fecha_recepcion_real)
+                            .toISOString()
+                            .slice(0, 10)
+                        : ""
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -292,8 +293,6 @@ export default function ComprasPage() {
                     required
                   >
                     <option value="Pendiente">Pendiente</option>
-                    <option value="Confirmada">Confirmada</option>
-                    <option value="En Tránsito">En Tránsito</option>
                     <option value="Recibida">Recibida</option>
                     <option value="Cancelada">Cancelada</option>
                   </select>
@@ -337,34 +336,29 @@ export default function ComprasPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
+            <CardTitle className="text-sm font-medium">Demorada</CardTitle>
             <Calendar className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {compras.filter((c) => c.estado === "Pendiente").length}
+              {
+                compras.filter(
+                  (c) =>
+                    c.fecha_recepcion_real == null &&
+                    c.fecha_recepcion_estimada >= new Date()
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En Tránsito</CardTitle>
+            <CardTitle className="text-sm font-medium">Pendiente</CardTitle>
             <Calendar className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {compras.filter((c) => c.estado === "En Tránsito").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recibidas</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {compras.filter((c) => c.estado === "Recibida").length}
+              {compras.filter((c) => c.fecha_recepcion_real == null).length}
             </div>
           </CardContent>
         </Card>

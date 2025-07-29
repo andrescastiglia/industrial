@@ -29,6 +29,7 @@ export interface MateriaPrima {
   longitud_estandar_m: number;
   color: string;
   id_tipo_componente: number;
+  nombre_tipo_componente?: string;
 }
 
 export interface Producto {
@@ -39,6 +40,7 @@ export interface Producto {
   alto: number;
   color: string;
   tipo_accionamiento: string;
+  componentes?: ComponenteProducto[];
 }
 
 export interface ComponenteProducto {
@@ -46,6 +48,12 @@ export interface ComponenteProducto {
   materia_prima_id: number;
   cantidad_necesaria: number;
   angulo_corte: string;
+  nombre_material?: string;
+  unidad_medida?: string;
+  color_material?: string;
+  referencia_proveedor?: string;
+  stock_actual?: number;
+  tipo_componente?: string;
 }
 
 export interface Cliente {
@@ -60,11 +68,13 @@ export interface Cliente {
 export interface OrdenVenta {
   orden_venta_id: number;
   cliente_id: number;
-  fecha_pedido: string;
-  fecha_entrega_estimada: string;
-  fecha_entrega_real?: string;
+  fecha_pedido: Date;
+  fecha_entrega_estimada: Date;
+  fecha_entrega_real?: Date;
   estado: string;
-  total_venta: number;
+  cliente_nombre?: string;
+  cliente_contacto?: string;
+  detalle?: DetalleOrdenVenta[];
 }
 
 export interface DetalleOrdenVenta {
@@ -72,7 +82,6 @@ export interface DetalleOrdenVenta {
   orden_venta_id: number;
   producto_id: number;
   cantidad: number;
-  precio_unitario_venta: number;
 }
 
 export interface OrdenProduccion {
@@ -80,11 +89,13 @@ export interface OrdenProduccion {
   orden_venta_id?: number;
   producto_id: number;
   cantidad_a_producir: number;
-  fecha_creacion: string;
-  fecha_inicio?: string;
-  fecha_fin_estimada: string;
-  fecha_fin_real?: string;
+  fecha_creacion: Date;
+  fecha_inicio?: Date;
+  fecha_fin_estimada: Date;
+  fecha_fin_real?: Date;
   estado: string;
+  consumos?: ConsumoMateriaPrimaProduccion[];
+  etapas?: EtapaProduccion[];
 }
 
 export interface ConsumoMateriaPrimaProduccion {
@@ -94,7 +105,7 @@ export interface ConsumoMateriaPrimaProduccion {
   cantidad_requerida: number;
   cantidad_usada: number;
   merma_calculada: number;
-  fecha_registro: string;
+  fecha_registro: Date;
 }
 
 export interface Proveedor {
@@ -110,12 +121,13 @@ export interface Proveedor {
 export interface Compra {
   compra_id: number;
   proveedor_id: number;
-  fecha_pedido: string;
-  fecha_recepcion_estimada: string;
-  fecha_recepcion_real?: string;
+  fecha_pedido: Date;
+  fecha_recepcion_estimada: Date;
+  fecha_recepcion_real?: Date;
   estado: string;
   total_compra: number;
   cotizacion_ref: string;
+  nombre_proveedor?: string;
 }
 
 export interface DetalleCompraMateriaPrima {
@@ -138,8 +150,11 @@ export interface EtapaProduccion {
   etapa_id: number;
   orden_produccion_id: number;
   nombre_etapa: string;
-  fecha_inicio?: string;
-  fecha_fin?: string;
+  fecha_inicio?: Date;
+  fecha_fin?: Date;
   operario_id?: number;
   estado: string;
+  nombre_operario?: string;
+  apellido_operario?: string;
+  rol_operario?: string;
 }

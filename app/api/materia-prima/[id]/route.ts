@@ -1,38 +1,60 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { pool } from "@/lib/database"
+import { type NextRequest, NextResponse } from "next/server";
+import { pool } from "@/lib/database";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     const result = await client.query(
       `
       SELECT 
-        mp.*,
+        mp.materia_prima_id,
+        mp.nombre,
+        mp.descripcion,
+        mp.referencia_proveedor,
+        mp.unidad_medida,
+        mp.stock_actual,
+        mp.punto_pedido,
+        mp.tiempo_entrega_dias,
+        mp.longitud_estandar_m,
+        mp.color,
+        mp.id_tipo_componente,
         tc.nombre_tipo
       FROM Materia_Prima mp
       LEFT JOIN Tipo_Componente tc ON mp.id_tipo_componente = tc.tipo_componente_id
       WHERE mp.materia_prima_id = $1
     `,
-      [params.id],
-    )
+      [params.id]
+    );
 
-    client.release()
+    client.release();
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ error: "Material no encontrado" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Material no encontrado" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(result.rows[0])
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error("Error fetching materia prima:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error fetching materia prima:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const body = await request.json()
+    const body = await request.json();
     const {
       nombre,
       descripcion,
@@ -44,9 +66,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       longitud_estandar_m,
       color,
       id_tipo_componente,
-    } = body
+    } = body;
 
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     const result = await client.query(
       `
@@ -76,37 +98,55 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         color,
         id_tipo_componente,
         params.id,
-      ],
-    )
+      ]
+    );
 
-    client.release()
+    client.release();
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ error: "Material no encontrado" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Material no encontrado" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(result.rows[0])
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error("Error updating materia prima:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error updating materia prima:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const client = await pool.connect()
+    const client = await pool.connect();
 
-    const result = await client.query("DELETE FROM Materia_Prima WHERE materia_prima_id = $1 RETURNING *", [params.id])
+    const result = await client.query(
+      "DELETE FROM Materia_Prima WHERE materia_prima_id = $1 RETURNING *",
+      [params.id]
+    );
 
-    client.release()
+    client.release();
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ error: "Material no encontrado" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Material no encontrado" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ message: "Material eliminado correctamente" })
+    return NextResponse.json({ message: "Material eliminado correctamente" });
   } catch (error) {
-    console.error("Error deleting materia prima:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error deleting materia prima:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }

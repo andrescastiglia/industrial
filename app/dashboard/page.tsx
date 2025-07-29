@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardContent,
@@ -5,59 +7,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import useDashboard from "@/hooks/useDashboard";
 import {
-  Users,
-  UserCheck,
-  Truck,
+  ClipboardList,
   Package,
   ShoppingCart,
   TrendingUp,
+  Truck,
+  User,
+  UserCheck,
   Warehouse,
-  ClipboardList,
 } from "lucide-react";
 
-const stats = [
-  {
-    name: "Operarios Activos",
-    value: "24",
-    icon: UserCheck,
-    color: "text-blue-600",
-  },
-  { name: "Clientes", value: "156", icon: Users, color: "text-green-600" },
-  { name: "Proveedores", value: "43", icon: Truck, color: "text-purple-600" },
-  {
-    name: "Productos en Stock",
-    value: "1,234",
-    icon: Package,
-    color: "text-orange-600",
-  },
-  {
-    name: "Compras del Mes",
-    value: "89",
-    icon: ShoppingCart,
-    color: "text-red-600",
-  },
-  {
-    name: "Ventas del Mes",
-    value: "267",
-    icon: TrendingUp,
-    color: "text-emerald-600",
-  },
-  {
-    name: "Items en Inventario",
-    value: "2,456",
-    icon: Warehouse,
-    color: "text-indigo-600",
-  },
-  {
-    name: "Órdenes Pendientes",
-    value: "12",
-    icon: ClipboardList,
-    color: "text-yellow-600",
-  },
-];
-
 export default function DashboardPage() {
+  const { dashboard, isLoading } = useDashboard();
+
+  if (isLoading) {
+    return <div>Cargando...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -68,22 +36,96 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.name}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.name}
-                </CardTitle>
-                <Icon className={`h-4 w-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Operarios Activos
+            </CardTitle>
+            <UserCheck className={`h-4 w-4 text-blue-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboard?.operariosActivos}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+            <User className={`h-4 w-4 text-green-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard?.clientes}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Proveedores</CardTitle>
+            <Truck className={`h-4 w-4 text-purple-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard?.proveedores}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Productos Stock
+            </CardTitle>
+            <Package className={`h-4 w-4 text-orange-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">-</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Compras del Mes
+            </CardTitle>
+            <ShoppingCart className={`h-4 w-4 text-red-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard?.comprasMes}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Ventas del Mes
+            </CardTitle>
+            <TrendingUp className={`h-4 w-4 text-esmerald-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard?.ventasMes}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Órdenes Producción Pendientes
+            </CardTitle>
+            <ClipboardList className={`h-4 w-4 text-yellow-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboard?.ordenesPendientes}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Inventario</CardTitle>
+            <Warehouse className={`h-4 w-4 text-indigo-600`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">-</div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -98,25 +140,18 @@ export default function DashboardPage() {
                 <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
                 <div className="text-sm">
                   <p className="font-medium">
-                    Nueva orden de producción creada
+                    Nueva orden de producción creada hace{" "}
+                    {dashboard?.ultimaOrden || "mucho"}
                   </p>
-                  <p className="text-muted-foreground">Hace 2 horas</p>
                 </div>
               </div>
               <div className="flex items-center">
                 <div className="w-2 h-2 bg-green-600 rounded-full mr-3"></div>
                 <div className="text-sm">
                   <p className="font-medium">
-                    Compra de materia prima completada
+                    Compra de materia prima completada hace{" "}
+                    {dashboard?.ultimaCompra || "mucho"}
                   </p>
-                  <p className="text-muted-foreground">Hace 4 horas</p>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-orange-600 rounded-full mr-3"></div>
-                <div className="text-sm">
-                  <p className="font-medium">Nuevo cliente registrado</p>
-                  <p className="text-muted-foreground">Hace 6 horas</p>
                 </div>
               </div>
             </div>
@@ -130,27 +165,15 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-red-600 rounded-full mr-3"></div>
-                <div className="text-sm">
-                  <p className="font-medium">Stock bajo: Acero inoxidable</p>
-                  <p className="text-muted-foreground">Quedan 15 unidades</p>
+              {dashboard?.alertas.map((alerta, index) => (
+                <div className="flex items-center" key={index}>
+                  <div className="w-2 h-2 bg-red-600 rounded-full mr-3"></div>
+                  <div className="text-sm">
+                    <p className="font-medium">{alerta.nombre}</p>
+                    <p className="text-muted-foreground">{alerta.detalle}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-yellow-600 rounded-full mr-3"></div>
-                <div className="text-sm">
-                  <p className="font-medium">Orden de producción retrasada</p>
-                  <p className="text-muted-foreground">OP-2024-001</p>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                <div className="text-sm">
-                  <p className="font-medium">Mantenimiento programado</p>
-                  <p className="text-muted-foreground">Máquina CNC-01 mañana</p>
-                </div>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>

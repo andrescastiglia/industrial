@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useMateriaPrima, useTiposComponente } from "@/hooks/useApi";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
+  DialogTrigger,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -38,60 +37,30 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useMateriaPrima } from "@/hooks/useMateriaPrima";
+import { useTiposComponente } from "@/hooks/useTiposComponente";
+import { MateriaPrima, TipoComponente } from "@/lib/database";
 
-interface TipoComponente {
-  tipo_componente_id: number;
-  nombre_tipo: string;
-}
-
-interface MateriaPrima {
-  materia_prima_id: number;
-  nombre: string;
-  descripcion: string;
-  referencia_proveedor: string;
-  unidad_medida: string;
-  stock_actual: number;
-  punto_pedido: number;
-  tiempo_entrega_dias: number;
-  longitud_estandar_m: number;
-  color: string;
-  id_tipo_componente: number;
-  // Campos adicionales para la gestión
-  proveedor?: string;
-  precio_unitario?: number;
-  ubicacion_almacen?: string;
-  fecha_actualizacion?: string;
-}
-
+export default function MateriaPrimaPage() {
   const {
     materiales: materiaPrima,
     createMaterial,
     updateMaterial,
     deleteMaterial,
     refetch,
-    loading,
-    error,
   } = useMateriaPrima() as {
     materiales: MateriaPrima[];
-    createMaterial: (data: any) => Promise<any>;
-    updateMaterial: (id: number, data: any) => Promise<any>;
-    deleteMaterial: (id: number) => Promise<any>;
+    createMaterial: (data: MateriaPrima) => Promise<MateriaPrima>;
+    updateMaterial: (id: number, data: MateriaPrima) => Promise<MateriaPrima>;
+    deleteMaterial: (id: number) => Promise<void>;
     refetch: () => void;
-    loading: boolean;
-    error: string | null;
   };
 
-  const {
-    tipos: tiposComponente,
-    loading: loadingTipos,
-    error: errorTipos,
-    refetch: refetchTipos,
-  } = useTiposComponente() as {
+  const { tipos: tiposComponente } = useTiposComponente() as {
     tipos: TipoComponente[];
-    loading: boolean;
-    error: string | null;
-    refetch: () => void;
   };
+  // Ensure tiposComponente is loaded before rendering
+  const tiposLoaded = tiposComponente && tiposComponente.length > 0;
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<MateriaPrima | null>(
@@ -119,23 +88,28 @@ interface MateriaPrima {
     (material) => material.stock_actual === 0
   );
 
-  const handleSubmit = async (formData: FormData) => {
-    const materialData = {
-      materia_prima_id: editingMaterial?.materia_prima_id,
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const materialData: MateriaPrima = {
+      materia_prima_id: editingMaterial?.materia_prima_id ?? 0,
       nombre: formData.get("nombre") as string,
       descripcion: formData.get("descripcion") as string,
       referencia_proveedor: formData.get("referencia_proveedor") as string,
       unidad_medida: formData.get("unidad_medida") as string,
       stock_actual: Number.parseFloat(formData.get("stock_actual") as string),
       punto_pedido: Number.parseFloat(formData.get("punto_pedido") as string),
-      tiempo_entrega_dias: Number.parseInt(formData.get("tiempo_entrega_dias") as string),
-      longitud_estandar_m: Number.parseFloat(formData.get("longitud_estandar_m") as string),
+      tiempo_entrega_dias: Number.parseInt(
+        formData.get("tiempo_entrega_dias") as string
+      ),
+      longitud_estandar_m: Number.parseFloat(
+        formData.get("longitud_estandar_m") as string
+      ),
       color: formData.get("color") as string,
-      id_tipo_componente: Number.parseInt(formData.get("id_tipo_componente") as string),
-      proveedor: formData.get("proveedor") as string,
-      precio_unitario: Number.parseFloat(formData.get("precio_unitario") as string),
-      ubicacion_almacen: formData.get("ubicacion_almacen") as string,
-      fecha_actualizacion: new Date().toISOString().split("T")[0],
+      id_tipo_componente: Number.parseInt(
+        formData.get("id_tipo_componente") as string
+      ),
     };
 
     if (editingMaterial) {
@@ -211,7 +185,7 @@ interface MateriaPrima {
                   : "Completa los datos de la nueva materia prima"}
               </DialogDescription>
             </DialogHeader>
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="nombre">Nombre *</Label>
@@ -232,18 +206,25 @@ interface MateriaPrima {
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                     defaultValue={
                       editingMaterial?.id_tipo_componente ||
-                      tiposComponente[0].tipo_componente_id
+                      (tiposLoaded ? tiposComponente[0].tipo_componente_id : "")
                     }
                     required
+                    disabled={!tiposLoaded}
                   >
-                    {tiposComponente.map((tipo) => (
-                      <option
-                        key={tipo.tipo_componente_id}
-                        value={tipo.tipo_componente_id}
-                      >
-                        {tipo.nombre_tipo}
+                    {!tiposLoaded ? (
+                      <option value="" disabled>
+                        Cargando tipos de componente...
                       </option>
-                    ))}
+                    ) : (
+                      tiposComponente.map((tipo) => (
+                        <option
+                          key={tipo.tipo_componente_id}
+                          value={tipo.tipo_componente_id}
+                        >
+                          {tipo.nombre_tipo}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
@@ -361,61 +342,6 @@ interface MateriaPrima {
                   />
                 </div>
               </div>
-
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-medium mb-3">
-                  Información Adicional de Gestión
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="proveedor">Proveedor</Label>
-                    <select
-                      id="proveedor"
-                      name="proveedor"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                      defaultValue={
-                        editingMaterial?.proveedor || "MetalCorp S.A."
-                      }
-                    >
-                      <option value="MetalCorp S.A.">MetalCorp S.A.</option>
-                      <option value="Aceros del Norte">Aceros del Norte</option>
-                      <option value="Herrajes Industriales">
-                        Herrajes Industriales
-                      </option>
-                      <option value="Plásticos Industriales SAC">
-                        Plásticos Industriales SAC
-                      </option>
-                      <option value="Químicos y Lubricantes EIRL">
-                        Químicos y Lubricantes EIRL
-                      </option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="precio_unitario">Precio Unitario</Label>
-                    <Input
-                      id="precio_unitario"
-                      name="precio_unitario"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      defaultValue={editingMaterial?.precio_unitario || ""}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2 mt-4">
-                  <Label htmlFor="ubicacion_almacen">
-                    Ubicación en Almacén
-                  </Label>
-                  <Input
-                    id="ubicacion_almacen"
-                    name="ubicacion_almacen"
-                    defaultValue={editingMaterial?.ubicacion_almacen || ""}
-                    placeholder="Ej: A-1-001"
-                  />
-                </div>
-              </div>
-
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancelar
@@ -474,24 +400,6 @@ interface MateriaPrima {
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
               {materialesSinStock.length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Valor Inventario
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              S/{" "}
-              {materiaPrima
-                .reduce(
-                  (acc, m) => acc + m.stock_actual * (m.precio_unitario || 0),
-                  0
-                )
-                .toLocaleString("es-PE", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
@@ -661,10 +569,7 @@ interface MateriaPrima {
                             |
                           </span>
                           {material.longitud_estandar_m > 0 &&
-                            `${material.longitud_estandar_m}m | `}
-                          <span className="hidden md:inline">
-                            {material.proveedor}
-                          </span>
+                            `${material.longitud_estandar_m}m`}
                         </div>
                       </div>
                     </TableCell>
@@ -678,14 +583,6 @@ interface MateriaPrima {
                         <span className="font-medium">
                           {material.stock_actual} {material.unidad_medida}
                         </span>
-                        {material.precio_unitario && (
-                          <div className="text-xs text-muted-foreground">
-                            S/{" "}
-                            {(
-                              material.stock_actual * material.precio_unitario
-                            ).toFixed(2)}
-                          </div>
-                        )}
                         <div className="text-xs text-muted-foreground lg:hidden">
                           {material.tiempo_entrega_dias} días entrega
                         </div>

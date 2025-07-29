@@ -41,36 +41,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-interface Operario {
-  operario_id: number;
-  nombre: string;
-  apellido: string;
-  rol: string;
-}
+import { Operario } from "@/lib/database";
 
-const rolesDisponibles = [
-  "Operador de Máquina",
-  "Operadora de Línea",
-  "Técnico de Mantenimiento",
-  "Supervisora",
-  "Jefe de Turno",
-  "Control de Calidad",
-  "Almacenero",
-  "Soldador",
-  "Electricista",
-  "Mecánico",
-];
+export default function OperariosPage() {
+  const rolesDisponibles = ["Supervisor", "Calificado", "Producción"];
 
   const [operarios, setOperarios] = useState<Operario[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setLoading] = useState(false);
+  const [, setError] = useState<string | null>(null);
   useEffect(() => {
     const fetchOperarios = async () => {
       setLoading(true);
       try {
         const data = await apiClient.getOperarios();
         setOperarios(data as Operario[]);
-      } catch (err) {
+      } catch {
         setError("Error al cargar operarios");
       } finally {
         setLoading(false);
@@ -90,21 +75,28 @@ const rolesDisponibles = [
       operario.rol.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = async (formData: FormData) => {
-    const operarioData = {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const operarioData: Operario = {
+      operario_id: editingOperario ? editingOperario.operario_id : 0,
       nombre: formData.get("nombre") as string,
       apellido: formData.get("apellido") as string,
       rol: formData.get("rol") as string,
     };
     try {
       if (editingOperario) {
-        await apiClient.updateOperario(editingOperario.operario_id, operarioData);
+        await apiClient.updateOperario(
+          editingOperario.operario_id,
+          operarioData
+        );
       } else {
         await apiClient.createOperario(operarioData);
       }
       const data = await apiClient.getOperarios();
       setOperarios(data as Operario[]);
-    } catch (err) {
+    } catch {
       setError("Error al guardar operario");
     }
     setIsDialogOpen(false);
@@ -121,7 +113,7 @@ const rolesDisponibles = [
       await apiClient.deleteOperario(operario_id);
       const data = await apiClient.getOperarios();
       setOperarios(data as Operario[]);
-    } catch (err) {
+    } catch {
       setError("Error al eliminar operario");
     }
   };
@@ -136,52 +128,29 @@ const rolesDisponibles = [
   };
 
   const getRolIcon = (rol: string) => {
-    if (rol.includes("Supervisor") || rol.includes("Jefe")) {
+    if (rol.includes("Supervisor")) {
       return <Shield className="h-4 w-4" />;
     }
-    if (rol.includes("Técnico") || rol.includes("Mantenimiento")) {
+    if (rol.includes("Calificado")) {
       return <Wrench className="h-4 w-4" />;
     }
     return <User className="h-4 w-4" />;
   };
 
   const getRolColor = (rol: string) => {
-    if (rol.includes("Supervisor") || rol.includes("Jefe")) {
+    if (rol.includes("Supervisor")) {
       return "bg-purple-100 text-purple-800";
     }
-    if (rol.includes("Técnico") || rol.includes("Mantenimiento")) {
+    if (rol.includes("Calificado")) {
       return "bg-blue-100 text-blue-800";
     }
-    if (rol.includes("Control") || rol.includes("Calidad")) {
-      return "bg-green-100 text-green-800";
-    }
-    return "bg-gray-100 text-gray-800";
+    return "bg-green-100 text-green-800";
   };
 
   const contarPorTipo = (tipo: string) => {
-    return operarios.filter((operario) => {
-      const rol = operario.rol.toLowerCase();
-      switch (tipo) {
-        case "supervisores":
-          return rol.includes("supervisor") || rol.includes("jefe");
-        case "tecnicos":
-          return (
-            rol.includes("técnico") ||
-            rol.includes("mantenimiento") ||
-            rol.includes("electricista") ||
-            rol.includes("mecánico")
-          );
-        case "operadores":
-          return (
-            rol.includes("operador") ||
-            rol.includes("operadora") ||
-            rol.includes("soldador") ||
-            rol.includes("almacen")
-          );
-        default:
-          return false;
-      }
-    }).length;
+    return operarios.filter((operario) =>
+      operario.rol.toLowerCase().includes(tipo.toLowerCase())
+    ).length;
   };
 
   return (
@@ -211,7 +180,7 @@ const rolesDisponibles = [
                   : "Completa los datos del nuevo operario"}
               </DialogDescription>
             </DialogHeader>
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre</Label>
                 <Input
@@ -275,34 +244,34 @@ const rolesDisponibles = [
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Supervisores</CardTitle>
+            <CardTitle className="text-sm font-medium">Supervisor</CardTitle>
             <Shield className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
-              {contarPorTipo("supervisores")}
+              {contarPorTipo("Supervisor")}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Técnicos</CardTitle>
+            <CardTitle className="text-sm font-medium">Calificado</CardTitle>
             <Wrench className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {contarPorTipo("tecnicos")}
+              {contarPorTipo("Calificado")}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Operadores</CardTitle>
+            <CardTitle className="text-sm font-medium">Producción</CardTitle>
             <User className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {contarPorTipo("operadores")}
+              {contarPorTipo("Producción")}
             </div>
           </CardContent>
         </Card>

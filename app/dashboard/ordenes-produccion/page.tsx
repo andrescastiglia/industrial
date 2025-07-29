@@ -41,58 +41,50 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useOrdenesProduccion } from "@/hooks/useOrdenesProduccion";
+import { useMateriaPrima } from "@/hooks/useMateriaPrima";
+import { useProductos } from "@/hooks/useProductos";
 import {
-  useOrdenesProduccion,
-  useMateriaPrima,
-  useProductos,
-  useClientes,
-} from "@/hooks/useApi";
-
-interface ConsumoTemp {
-  materia_prima_id: number;
-  cantidad_requerida: number;
-  cantidad_usada: number;
-  merma_calculada: number;
-  fecha_registro: string;
-}
+  ConsumoMateriaPrimaProduccion,
+  MateriaPrima,
+  OrdenProduccion,
+  Producto,
+} from "@/lib/database";
 
 export default function OrdenesProduccionPage() {
   const { ordenes, loading, error, createOrden, updateOrden, deleteOrden } =
     useOrdenesProduccion();
-  const { materiales } = useMateriaPrima();
-  const { productos } = useProductos();
-  const { clientes } = useClientes();
+  const { materiales }: { materiales: MateriaPrima[] } = useMateriaPrima();
+  const { productos }: { productos: Producto[] } = useProductos();
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingOrden, setEditingOrden] = useState<any>(null);
-  const [viewingOrden, setViewingOrden] = useState<any>(null);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [consumosTemp, setConsumosTemp] = useState<ConsumoTemp[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [editingOrden, setEditingOrden] = useState<OrdenProduccion | null>(
+    null
+  );
+  const [, setViewingOrden] = useState<OrdenProduccion | null>(null);
+  const [, setIsViewDialogOpen] = useState<boolean>(false);
+  const [consumosMateriaPrimaProduccion, setConsumosMateriaPrimaProduccion] =
+    useState<ConsumoMateriaPrimaProduccion[]>([]);
 
-  const filteredOrdenes = ordenes.filter((orden: any) => {
+  const filteredOrdenes = ordenes.filter((orden: OrdenProduccion) => {
     const producto = productos.find(
-      (p: any) => p.producto_id === orden.producto_id
+      (p: Producto) => p.producto_id === orden.producto_id
     );
     return (
       orden.orden_produccion_id.toString().includes(searchTerm.toLowerCase()) ||
       producto?.nombre_modelo
         .toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      orden.cliente_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       orden.estado.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString("es-PE");
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("es-AR");
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("es-PE");
-  };
-
-  const calcularProgreso = (orden: any) => {
+  const calcularProgreso = (orden: OrdenProduccion) => {
     if (orden.estado === "Completada") return 100;
     if (orden.estado === "Cancelada") return 0;
     if (orden.estado === "Planificada") return 0;
@@ -113,58 +105,84 @@ export default function OrdenesProduccionPage() {
   };
 
   const agregarConsumo = () => {
-    const nuevoConsumo: ConsumoTemp = {
+    const nuevoConsumo: ConsumoMateriaPrimaProduccion = {
+      consumo_id: Date.now(),
+      orden_produccion_id: editingOrden?.orden_produccion_id || 0,
       materia_prima_id: materiales[0]?.materia_prima_id || 1,
       cantidad_requerida: 1,
       cantidad_usada: 0,
       merma_calculada: 0,
-      fecha_registro: new Date().toISOString(),
+      fecha_registro: new Date(),
     };
-    setConsumosTemp([...consumosTemp, nuevoConsumo]);
+    setConsumosMateriaPrimaProduccion([
+      ...consumosMateriaPrimaProduccion,
+      nuevoConsumo,
+    ]);
   };
 
-  const actualizarConsumo = (index: number, campo: string, valor: any) => {
-    const nuevosConsumos = [...consumosTemp];
+  const actualizarConsumo = (
+    index: number,
+    campo: string,
+    valor: string | number
+  ) => {
+    const nuevosConsumos = [...consumosMateriaPrimaProduccion];
     nuevosConsumos[index] = {
       ...nuevosConsumos[index],
       [campo]:
         campo.includes("cantidad") || campo.includes("merma")
-          ? Number.parseFloat(valor) || 0
+          ? typeof valor === "string"
+            ? Number.parseFloat(valor) || 0
+            : valor
           : valor,
     };
 
     if (campo === "cantidad_usada") {
       const cantidadRequerida = nuevosConsumos[index].cantidad_requerida;
-      const cantidadUsada = Number.parseFloat(valor) || 0;
+      const cantidadUsada =
+        typeof valor === "string"
+          ? Number.parseFloat(valor) || 0
+          : (valor as number);
       nuevosConsumos[index].merma_calculada = Math.max(
         0,
         cantidadUsada - cantidadRequerida
       );
     }
 
-    setConsumosTemp(nuevosConsumos);
+    setConsumosMateriaPrimaProduccion(nuevosConsumos);
   };
 
   const eliminarConsumo = (index: number) => {
-    setConsumosTemp(consumosTemp.filter((_, i) => i !== index));
+    setConsumosMateriaPrimaProduccion(
+      consumosMateriaPrimaProduccion.filter((_, i) => i !== index)
+    );
   };
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
     try {
-      const ordenData = {
+      const ordenData: OrdenProduccion = {
+        orden_produccion_id: editingOrden?.orden_produccion_id || 0,
         orden_venta_id: formData.get("orden_venta_id")
           ? Number.parseInt(formData.get("orden_venta_id") as string)
-          : null,
+          : undefined,
         producto_id: Number.parseInt(formData.get("producto_id") as string),
         cantidad_a_producir: Number.parseInt(
           formData.get("cantidad_a_producir") as string
         ),
-        fecha_creacion: formData.get("fecha_creacion") as string,
-        fecha_inicio: (formData.get("fecha_inicio") as string) || null,
-        fecha_fin_estimada: formData.get("fecha_fin_estimada") as string,
-        fecha_fin_real: (formData.get("fecha_fin_real") as string) || null,
+        fecha_creacion: new Date(formData.get("fecha_creacion") as string),
+        fecha_inicio: formData.get("fecha_inicio")
+          ? new Date(formData.get("fecha_inicio") as string)
+          : undefined,
+        fecha_fin_estimada: formData.get("fecha_fin_estimada")
+          ? new Date(formData.get("fecha_fin_estimada") as string)
+          : new Date(),
+        fecha_fin_real: formData.get("fecha_fin_real")
+          ? new Date(formData.get("fecha_fin_real") as string)
+          : undefined,
         estado: formData.get("estado") as string,
-        consumos: consumosTemp,
+        consumos: consumosMateriaPrimaProduccion,
       };
 
       if (editingOrden) {
@@ -175,19 +193,19 @@ export default function OrdenesProduccionPage() {
 
       setIsDialogOpen(false);
       setEditingOrden(null);
-      setConsumosTemp([]);
+      setConsumosMateriaPrimaProduccion([]);
     } catch (error) {
       console.error("Error al guardar orden:", error);
     }
   };
 
-  const handleEdit = (orden: any) => {
+  const handleEdit = (orden: OrdenProduccion) => {
     setEditingOrden(orden);
-    setConsumosTemp(orden.consumos || []);
+    setConsumosMateriaPrimaProduccion(orden.consumos || []);
     setIsDialogOpen(true);
   };
 
-  const handleView = (orden: any) => {
+  const handleView = (orden: OrdenProduccion) => {
     setViewingOrden(orden);
     setIsViewDialogOpen(true);
   };
@@ -202,7 +220,7 @@ export default function OrdenesProduccionPage() {
 
   const resetForm = () => {
     setEditingOrden(null);
-    setConsumosTemp([]);
+    setConsumosMateriaPrimaProduccion([]);
     setIsDialogOpen(false);
   };
 
@@ -224,20 +242,15 @@ export default function OrdenesProduccionPage() {
   };
 
   const getProductoNombre = (producto_id: number) => {
-    const producto = productos.find((p: any) => p.producto_id === producto_id);
-    return producto ? producto.nombre_modelo : `Producto #${producto_id}`;
-  };
-
-  const getMaterialNombre = (materia_prima_id: number) => {
-    const material = materiales.find(
-      (m: any) => m.materia_prima_id === materia_prima_id
+    const producto = productos.find(
+      (p: Producto) => p.producto_id === producto_id
     );
-    return material ? material.nombre : `Material #${materia_prima_id}`;
+    return producto ? producto.nombre_modelo : `Producto #${producto_id}`;
   };
 
   const getMaterialUnidad = (materia_prima_id: number) => {
     const material = materiales.find(
-      (m: any) => m.materia_prima_id === materia_prima_id
+      (m: MateriaPrima) => m.materia_prima_id === materia_prima_id
     );
     return material ? material.unidad_medida : "ud";
   };
@@ -298,7 +311,7 @@ export default function OrdenesProduccionPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <form action={handleSubmit}>
+              <form onSubmit={handleSubmit}>
                 <TabsContent value="general" className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -312,7 +325,7 @@ export default function OrdenesProduccionPage() {
                         }
                         required
                       >
-                        {productos.map((producto: any) => (
+                        {productos.map((producto: Producto) => (
                           <option
                             key={producto.producto_id}
                             value={producto.producto_id}
@@ -438,7 +451,7 @@ export default function OrdenesProduccionPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {consumosTemp.map((consumo, index) => (
+                    {consumosMateriaPrimaProduccion.map((consumo, index) => (
                       <Card key={index} className="p-4">
                         <div className="grid grid-cols-12 gap-3 items-end">
                           <div className="col-span-4">
@@ -454,7 +467,7 @@ export default function OrdenesProduccionPage() {
                                 )
                               }
                             >
-                              {materiales.map((mp: any) => (
+                              {materiales.map((mp: MateriaPrima) => (
                                 <option
                                   key={mp.materia_prima_id}
                                   value={mp.materia_prima_id}
@@ -467,7 +480,7 @@ export default function OrdenesProduccionPage() {
                               Stock:{" "}
                               {
                                 materiales.find(
-                                  (m: any) =>
+                                  (m: MateriaPrima) =>
                                     m.materia_prima_id ===
                                     consumo.materia_prima_id
                                 )?.stock_actual
@@ -535,10 +548,10 @@ export default function OrdenesProduccionPage() {
                       </Card>
                     ))}
 
-                    {consumosTemp.length === 0 && (
+                    {consumosMateriaPrimaProduccion.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
-                        No hay materiales agregados. Haz clic en "Agregar
-                        Material" para comenzar.
+                        No hay materiales agregados. Haz clic en &ldquo;Agregar
+                        Material&rdquo; para comenzar.
                       </div>
                     )}
                   </div>
@@ -575,7 +588,11 @@ export default function OrdenesProduccionPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {ordenes.filter((o: any) => o.estado === "En Proceso").length}
+              {
+                ordenes.filter(
+                  (o: OrdenProduccion) => o.estado === "En Proceso"
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
@@ -586,7 +603,11 @@ export default function OrdenesProduccionPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {ordenes.filter((o: any) => o.estado === "Completada").length}
+              {
+                ordenes.filter(
+                  (o: OrdenProduccion) => o.estado === "Completada"
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
@@ -597,7 +618,11 @@ export default function OrdenesProduccionPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {ordenes.filter((o: any) => o.estado === "Planificada").length}
+              {
+                ordenes.filter(
+                  (o: OrdenProduccion) => o.estado === "Planificada"
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
@@ -636,7 +661,7 @@ export default function OrdenesProduccionPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrdenes.map((orden: any) => {
+              {filteredOrdenes.map((orden: OrdenProduccion) => {
                 const progreso = calcularProgreso(orden);
                 return (
                   <TableRow key={orden.orden_produccion_id}>
@@ -673,11 +698,6 @@ export default function OrdenesProduccionPage() {
                       <span className="font-medium">
                         {orden.cantidad_a_producir}
                       </span>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <div className="text-sm">
-                        {orden.cliente_nombre || "Producción Interna"}
-                      </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {getEstadoBadge(orden.estado)}

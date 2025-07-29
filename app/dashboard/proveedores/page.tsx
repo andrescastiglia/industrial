@@ -31,26 +31,19 @@ import {
 import { Plus, Edit, Trash2, Search, Truck, Phone, Mail } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
-interface Proveedor {
-  proveedor_id: number;
-  nombre: string;
-  contacto: string;
-  direccion: string;
-  telefono: string;
-  email: string;
-  cuit: string;
-}
+import { Proveedor } from "@/lib/database";
 
+export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setLoading] = useState(false);
+  const [, setError] = useState<string | null>(null);
   useEffect(() => {
     const fetchProveedores = async () => {
       setLoading(true);
       try {
         const data = await apiClient.getProveedores();
         setProveedores(data as Proveedor[]);
-      } catch (err) {
+      } catch {
         setError("Error al cargar proveedores");
       } finally {
         setLoading(false);
@@ -74,9 +67,12 @@ interface Proveedor {
       proveedor.direccion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = async (formData: FormData) => {
-    const proveedorData = {
-      proveedor_id: editingProveedor?.proveedor_id,
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const proveedorData: Proveedor = {
+      proveedor_id: editingProveedor ? editingProveedor.proveedor_id : 0,
       nombre: formData.get("nombre") as string,
       contacto: formData.get("contacto") as string,
       direccion: formData.get("direccion") as string,
@@ -86,13 +82,16 @@ interface Proveedor {
     };
     try {
       if (editingProveedor) {
-        await apiClient.updateProveedor(editingProveedor.proveedor_id, proveedorData);
+        await apiClient.updateProveedor(
+          editingProveedor.proveedor_id,
+          proveedorData
+        );
       } else {
         await apiClient.createProveedor(proveedorData);
       }
       const data = await apiClient.getProveedores();
       setProveedores(data as Proveedor[]);
-    } catch (err) {
+    } catch {
       setError("Error al guardar proveedor");
     }
     setIsDialogOpen(false);
@@ -109,7 +108,7 @@ interface Proveedor {
       await apiClient.deleteProveedor(id);
       const data = await apiClient.getProveedores();
       setProveedores(data as Proveedor[]);
-    } catch (err) {
+    } catch {
       setError("Error al eliminar proveedor");
     }
   };
@@ -155,7 +154,7 @@ interface Proveedor {
                   : "Completa los datos del nuevo proveedor"}
               </DialogDescription>
             </DialogHeader>
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre de la Empresa *</Label>
                 <Input
@@ -257,7 +256,11 @@ interface Proveedor {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {proveedores.filter((p) => p.nombre.includes("S.A.")).length}
+              {
+                proveedores.filter(
+                  (p) => p.nombre.includes("S.A.") || p.nombre.includes("SA")
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
@@ -269,7 +272,11 @@ interface Proveedor {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {proveedores.filter((p) => p.nombre.includes("S.R.L.")).length}
+              {
+                proveedores.filter(
+                  (p) => p.nombre.includes("S.R.L.") || p.nombre.includes("SRL")
+                ).length
+              }
             </div>
           </CardContent>
         </Card>
@@ -284,7 +291,12 @@ interface Proveedor {
               {
                 proveedores.filter(
                   (p) =>
-                    p.nombre.includes("E.I.R.L.") || p.nombre.includes("S.A.C.")
+                    !(
+                      p.nombre.includes("S.R.L.") ||
+                      p.nombre.includes("S.A.") ||
+                      p.nombre.includes("SRL") ||
+                      p.nombre.includes("SA")
+                    )
                 ).length
               }
             </div>

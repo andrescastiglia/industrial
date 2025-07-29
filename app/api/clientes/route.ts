@@ -6,7 +6,7 @@ export async function GET() {
     const client = await pool.connect()
 
     const result = await client.query(`
-      SELECT * FROM Clientes
+      SELECT cliente_id, nombre, contacto, direccion, telefono, email FROM Clientes
       ORDER BY nombre
     `)
 
