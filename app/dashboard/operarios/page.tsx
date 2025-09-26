@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
 import { Operario } from "@/lib/database";
 
 export default function OperariosPage() {
@@ -164,12 +163,12 @@ export default function OperariosPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Operario
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingOperario ? "Editar Operario" : "Nuevo Operario"}
@@ -218,10 +217,15 @@ export default function OperariosPage() {
                 </select>
               </div>
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="bg-gray-800 text-white"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="bg-gray-800 text-white">
                   {editingOperario ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -351,6 +355,7 @@ export default function OperariosPage() {
                         size="sm"
                         onClick={() => handleEdit(operario)}
                         title="Editar Operario"
+                        className="bg-gray-800 text-white"
                       >
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">Editar Operario</span>
@@ -360,6 +365,7 @@ export default function OperariosPage() {
                         size="sm"
                         onClick={() => handleDelete(operario.operario_id)}
                         title="Eliminar Operario"
+                        className="bg-gray-800 text-white"
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Eliminar Operario</span>

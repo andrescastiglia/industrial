@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,8 +37,11 @@ export default function ClientesPage() {
     useClientes() as {
       clientes: Cliente[];
       refetch: () => Promise<void>;
+      // eslint-disable-next-line no-unused-vars
       createCliente: (data: Partial<Cliente>) => Promise<Cliente>;
+      // eslint-disable-next-line no-unused-vars
       updateCliente: (id: number, data: Partial<Cliente>) => Promise<Cliente>;
+      // eslint-disable-next-line no-unused-vars
       deleteCliente: (id: number) => Promise<void>;
     };
   const [searchTerm, setSearchTerm] = useState("");
@@ -122,12 +125,12 @@ export default function ClientesPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Cliente
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingCliente ? "Editar Cliente" : "Nuevo Cliente"}
@@ -198,10 +201,15 @@ export default function ClientesPage() {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="bg-gray-800 text-white"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="bg-gray-800 text-white">
                   {editingCliente ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -350,6 +358,7 @@ export default function ClientesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(cliente)}
+                        className="bg-gray-800 text-white"
                       >
                         <span className="sr-only">Editar</span>
                         <Edit className="h-4 w-4" />
@@ -358,6 +367,7 @@ export default function ClientesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(cliente.cliente_id)}
+                        className="bg-gray-800 text-white"
                       >
                         <span className="sr-only">Eliminar</span>
                         <Trash2 className="h-4 w-4" />

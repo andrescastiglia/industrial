@@ -66,7 +66,11 @@ export default function LoginPage() {
             {error && (
               <div className="text-red-600 text-sm text-center">{error}</div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full bg-gray-800 text-white"
+              disabled={loading}
+            >
               {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>

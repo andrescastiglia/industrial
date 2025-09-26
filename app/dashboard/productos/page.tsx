@@ -45,14 +45,20 @@ export default function ProductosPage() {
   } = useProductos() as {
     productos: Producto[];
     createProducto: (
+      // eslint-disable-next-line no-unused-vars
       producto: Producto,
+      // eslint-disable-next-line no-unused-vars
       componentes: ComponenteProducto[]
     ) => Promise<Producto>;
     updateProducto: (
+      // eslint-disable-next-line no-unused-vars
       id: number,
+      // eslint-disable-next-line no-unused-vars
       producto: Producto,
+      // eslint-disable-next-line no-unused-vars
       componentes: ComponenteProducto[]
     ) => Promise<Producto>;
+    // eslint-disable-next-line no-unused-vars
     deleteProducto: (id: number) => Promise<void>;
     refetch: () => void;
   };
@@ -85,15 +91,35 @@ export default function ProductosPage() {
   );
 
   const handleSubmit = async (formData: FormData) => {
+    // Validar que todos los campos requeridos estén presentes
+    const nombre_modelo = formData.get("nombre_modelo") as string;
+    const descripcion = formData.get("descripcion") as string;
+    const ancho = formData.get("ancho") as string;
+    const alto = formData.get("alto") as string;
+    const color = formData.get("color") as string;
+    const tipo_accionamiento = formData.get("tipo_accionamiento") as string;
+
+    if (!nombre_modelo || !descripcion || !ancho || !alto || !color || !tipo_accionamiento) {
+      console.error("Faltan campos requeridos");
+      return;
+    }
+
     const productoData: Producto = {
       producto_id: editingProducto?.producto_id ?? 0,
-      nombre_modelo: formData.get("nombre_modelo") as string,
-      descripcion: formData.get("descripcion") as string,
-      ancho: Number.parseFloat(formData.get("ancho") as string),
-      alto: Number.parseFloat(formData.get("alto") as string),
-      color: formData.get("color") as string,
-      tipo_accionamiento: formData.get("tipo_accionamiento") as string,
+      nombre_modelo: nombre_modelo.trim(),
+      descripcion: descripcion.trim(),
+      ancho: Number.parseFloat(ancho),
+      alto: Number.parseFloat(alto),
+      color: color,
+      tipo_accionamiento: tipo_accionamiento.trim(),
     };
+
+    // Validar que los números sean válidos
+    if (isNaN(productoData.ancho) || isNaN(productoData.alto)) {
+      console.error("Dimensiones inválidas");
+      return;
+    }
+
     const componenteData: ComponenteProducto[] = componentesTemp.map(
       (comp) => ({
         ...comp,
@@ -245,12 +271,12 @@ export default function ProductosPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Producto
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingProducto ? "Editar Producto" : "Nuevo Producto"}
@@ -264,8 +290,18 @@ export default function ProductosPage() {
 
             <Tabs defaultValue="general" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="general">Información General</TabsTrigger>
-                <TabsTrigger value="componentes">Componentes</TabsTrigger>
+                <TabsTrigger
+                  value="general"
+                  className="bg-gray-200 text-gray-400 data-[state=active]:bg-white data-[state=active]:text-black"
+                >
+                  Información General
+                </TabsTrigger>
+                <TabsTrigger
+                  value="componentes"
+                  className="bg-gray-200 text-gray-400 data-[state=active]:bg-white data-[state=active]:text-black"
+                >
+                  Componentes
+                </TabsTrigger>
               </TabsList>
 
               <form action={handleSubmit}>
@@ -366,7 +402,12 @@ export default function ProductosPage() {
                     <h4 className="text-lg font-medium">
                       Componentes del Producto
                     </h4>
-                    <Button type="button" onClick={agregarComponente} size="sm">
+                    <Button
+                      type="button"
+                      onClick={agregarComponente}
+                      size="sm"
+                      className="bg-gray-800 text-white"
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       Agregar Componente
                     </Button>
@@ -464,7 +505,7 @@ export default function ProductosPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => eliminarComponente(index)}
-                              className="h-9 w-full"
+                              className="h-9 w-full bg-gray-800 text-white"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -513,10 +554,15 @@ export default function ProductosPage() {
                 </TabsContent>
 
                 <div className="flex justify-end space-x-2 pt-4 border-t">
-                  <Button type="button" variant="outline" onClick={resetForm}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetForm}
+                    className="bg-gray-800 text-white"
+                  >
                     Cancelar
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" className="bg-gray-800 text-white">
                     {editingProducto ? "Actualizar" : "Crear"}
                   </Button>
                 </div>
@@ -660,6 +706,7 @@ export default function ProductosPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleView(producto)}
+                          className="bg-gray-800 text-white"
                         >
                           <span className="sr-only">Ver detalles</span>
                           <Eye className="h-4 w-4" />
@@ -668,6 +715,7 @@ export default function ProductosPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(producto)}
+                          className="bg-gray-800 text-white"
                         >
                           <span className="sr-only">Editar</span>
                           <Edit className="h-4 w-4" />
@@ -676,6 +724,7 @@ export default function ProductosPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDelete(producto.producto_id)}
+                          className="bg-gray-800 text-white"
                         >
                           <span className="sr-only">Eliminar</span>
                           <Trash2 className="h-4 w-4" />
@@ -692,7 +741,7 @@ export default function ProductosPage() {
 
       {/* Dialog para ver detalles */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-gray-100">
           <DialogHeader>
             <DialogTitle>Detalles del Producto</DialogTitle>
             <DialogDescription>

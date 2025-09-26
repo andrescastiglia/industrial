@@ -32,23 +32,53 @@ export async function POST(request: NextRequest) {
       alto,
       color,
       tipo_accionamiento,
+      componentes = [],
     } = body;
 
     const client = await pool.connect();
 
-    const result = await client.query(
-      `
-      INSERT INTO Productos (
-        nombre_modelo, descripcion, ancho, alto, color, tipo_accionamiento
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `,
-      [nombre_modelo, descripcion, ancho, alto, color, tipo_accionamiento]
-    );
+    try {
+      await client.query("BEGIN");
 
-    client.release();
+      // Crear producto
+      const result = await client.query(
+        `
+        INSERT INTO Productos (
+          nombre_modelo, descripcion, ancho, alto, color, tipo_accionamiento
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `,
+        [nombre_modelo, descripcion, ancho, alto, color, tipo_accionamiento]
+      );
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+      const nuevoProducto = result.rows[0];
+
+      // Insertar componentes si los hay
+      for (const componente of componentes) {
+        await client.query(
+          `
+          INSERT INTO Componentes_Producto (
+            producto_id, materia_prima_id, cantidad_necesaria, angulo_corte
+          ) VALUES ($1, $2, $3, $4)
+        `,
+          [
+            nuevoProducto.producto_id,
+            componente.materia_prima_id,
+            componente.cantidad_necesaria,
+            componente.angulo_corte,
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+      client.release();
+
+      return NextResponse.json(nuevoProducto, { status: 201 });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      client.release();
+      throw error;
+    }
   } catch (error) {
     console.error("Error creating producto:", error);
     return NextResponse.json(

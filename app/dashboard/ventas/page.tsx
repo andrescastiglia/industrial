@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,12 +90,12 @@ export default function VentasPage() {
   });
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("es-AR");
+    return new Date(date).toLocaleDateString("es-AR");
   };
 
   const calcularDiasRetraso = (estimada: Date, fechaReal?: Date) => {
     const actual = fechaReal ?? new Date();
-    const diffTime = actual.getTime() - estimada.getTime();
+    const diffTime = new Date(actual).getTime() - new Date(estimada).getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
@@ -247,12 +247,12 @@ export default function VentasPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Orden
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingOrden
@@ -372,7 +372,12 @@ export default function VentasPage() {
                   <Label className="text-lg font-semibold">
                     Detalles de la Orden
                   </Label>
-                  <Button type="button" onClick={agregarDetalle} size="sm">
+                  <Button
+                    type="button"
+                    onClick={agregarDetalle}
+                    size="sm"
+                    className="bg-gray-800 text-white"
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Agregar Producto
                   </Button>
@@ -387,6 +392,7 @@ export default function VentasPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => eliminarDetalle(index)}
+                        className="bg-gray-800 text-white"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -449,10 +455,19 @@ export default function VentasPage() {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="bg-gray-800 text-white"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={detallesTemp.length === 0}>
+                <Button
+                  type="submit"
+                  disabled={detallesTemp.length === 0}
+                  className="bg-gray-800 text-white"
+                >
                   {editingOrden ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -625,6 +640,7 @@ export default function VentasPage() {
                         size="sm"
                         onClick={() => handleView(orden)}
                         title="Ver Detalles"
+                        className="bg-gray-800 text-white"
                       >
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">Ver Detalles</span>
@@ -634,6 +650,7 @@ export default function VentasPage() {
                         size="sm"
                         onClick={() => handleEdit(orden)}
                         title="Editar Orden"
+                        className="bg-gray-800 text-white"
                       >
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">Editar Orden</span>
@@ -643,6 +660,7 @@ export default function VentasPage() {
                         size="sm"
                         onClick={() => handleDelete(orden.orden_venta_id)}
                         title="Eliminar Orden"
+                        className="bg-gray-800 text-white"
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Eliminar Orden</span>
@@ -658,7 +676,7 @@ export default function VentasPage() {
 
       {/* Dialog para ver detalles */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="sm:max-w-[700px] bg-gray-100">
           <DialogHeader>
             <DialogTitle>Detalles de Orden de Venta</DialogTitle>
             <DialogDescription>

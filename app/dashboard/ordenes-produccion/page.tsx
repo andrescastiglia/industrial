@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,7 +81,7 @@ export default function OrdenesProduccionPage() {
   });
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("es-AR");
+    return new Date(date).toLocaleDateString("es-AR");
   };
 
   const calcularProgreso = (orden: OrdenProduccion) => {
@@ -284,12 +284,12 @@ export default function OrdenesProduccionPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Orden de Producción
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingOrden
@@ -305,8 +305,16 @@ export default function OrdenesProduccionPage() {
 
             <Tabs defaultValue="general" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="general">Información General</TabsTrigger>
-                <TabsTrigger value="materiales">
+                <TabsTrigger
+                  value="general"
+                  className="bg-gray-200 text-gray-400 data-[state=active]:bg-white data-[state=active]:text-black"
+                >
+                  Información General
+                </TabsTrigger>
+                <TabsTrigger
+                  value="materiales"
+                  className="bg-gray-200 text-gray-400 data-[state=active]:bg-white data-[state=active]:text-black"
+                >
                   Consumo de Materiales
                 </TabsTrigger>
               </TabsList>
@@ -444,7 +452,12 @@ export default function OrdenesProduccionPage() {
                     <h4 className="text-lg font-medium">
                       Consumo de Materia Prima
                     </h4>
-                    <Button type="button" onClick={agregarConsumo} size="sm">
+                    <Button
+                      type="button"
+                      onClick={agregarConsumo}
+                      size="sm"
+                      className="bg-gray-800 text-white"
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       Agregar Material
                     </Button>
@@ -539,7 +552,7 @@ export default function OrdenesProduccionPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => eliminarConsumo(index)}
-                              className="h-9 w-full"
+                              className="h-9 w-full bg-gray-800 text-white"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -558,10 +571,15 @@ export default function OrdenesProduccionPage() {
                 </TabsContent>
 
                 <div className="flex justify-end space-x-2 pt-4 border-t">
-                  <Button type="button" variant="outline" onClick={resetForm}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetForm}
+                    className="bg-gray-800 text-white"
+                  >
                     Cancelar
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" className="bg-gray-800 text-white">
                     {editingOrden ? "Actualizar" : "Crear"}
                   </Button>
                 </div>
@@ -722,6 +740,7 @@ export default function OrdenesProduccionPage() {
                           size="sm"
                           onClick={() => handleView(orden)}
                           title="Ver Detalles"
+                          className="bg-gray-800 text-white"
                         >
                           <Eye className="h-4 w-4" />
                           <span className="sr-only">Ver Detalles</span>
@@ -731,6 +750,7 @@ export default function OrdenesProduccionPage() {
                           size="sm"
                           onClick={() => handleEdit(orden)}
                           title="Editar Orden"
+                          className="bg-gray-800 text-white"
                         >
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">Editar Orden</span>
@@ -742,6 +762,7 @@ export default function OrdenesProduccionPage() {
                             handleDelete(orden.orden_produccion_id)
                           }
                           title="Eliminar Orden"
+                          className="bg-gray-800 text-white"
                         >
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Eliminar Orden</span>

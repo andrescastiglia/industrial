@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,8 +45,11 @@ export default function ComprasPage() {
     useCompras() as {
       compras: Compra[];
       refetch: () => void;
+      // eslint-disable-next-line no-unused-vars
       createCompra: (data: Partial<Compra>) => Promise<Compra>;
+      // eslint-disable-next-line no-unused-vars
       updateCompra: (id: number, data: Partial<Compra>) => Promise<Compra>;
+      // eslint-disable-next-line no-unused-vars
       deleteCompra: (id: number) => Promise<void>;
     };
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,13 +75,13 @@ export default function ComprasPage() {
   });
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("es-AR");
+    return new Date(date).toLocaleDateString("es-AR");
   };
 
   const calcularDiasRetraso = (fechaEstimada: Date, fechaReal?: Date) => {
     const estimada = new Date(fechaEstimada);
     const actual = fechaReal ?? new Date();
-    const diffTime = actual.getTime() - estimada.getTime();
+    const diffTime = new Date(actual).getTime() - new Date(estimada).getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
@@ -170,12 +173,12 @@ export default function ComprasPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Compra
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingCompra ? "Editar Compra" : "Nueva Compra"}
@@ -312,10 +315,15 @@ export default function ComprasPage() {
                 />
               </div>
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="bg-gray-800 text-white"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="bg-gray-800 text-white">
                   {editingCompra ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -447,7 +455,7 @@ export default function ComprasPage() {
                       </div>
                       <div className="md:hidden text-sm text-muted-foreground">
                         {getEstadoBadge(compra.estado)} • S/{" "}
-                        {compra.total_compra.toFixed(2)}
+                        {compra.total_compra}
                       </div>
                       <div className="md:hidden text-xs text-muted-foreground mt-1">
                         {formatDate(compra.fecha_pedido)}
@@ -481,7 +489,7 @@ export default function ComprasPage() {
                     {getEstadoBadge(compra.estado)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    S/ {compra.total_compra.toFixed(2)}
+                    S/ {compra.total_compra}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
@@ -489,6 +497,7 @@ export default function ComprasPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(compra)}
+                        className="bg-gray-800 text-white"
                       >
                         <span className="sr-only">Editar</span>
                         <Edit className="h-4 w-4" />
@@ -497,6 +506,7 @@ export default function ComprasPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(compra.compra_id)}
+                        className="bg-gray-800 text-white"
                       >
                         <span className="sr-only">Eliminar</span>
                         <Trash2 className="h-4 w-4" />

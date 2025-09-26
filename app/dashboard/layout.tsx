@@ -1,18 +1,18 @@
-import type React from "react"
-import { isAuthenticated } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import { Header } from "@/components/header"
-import { MobileMenu } from "@/components/mobile-menu"
+import type React from "react";
+import { isAuthenticated } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { Header } from "@/components/header";
+import { MobileMenu } from "@/components/mobile-menu";
 
 export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const authenticated = await isAuthenticated()
+  const authenticated = await isAuthenticated();
 
   if (!authenticated) {
-    redirect("/login")
+    redirect("/login");
   }
 
   return (
@@ -20,8 +20,10 @@ export default async function DashboardLayout({
       <MobileMenu />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4">{children}</main>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4">
+          {children}
+        </main>
       </div>
     </div>
-  )
+  );
 }

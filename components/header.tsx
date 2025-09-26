@@ -17,18 +17,18 @@ export function Header() {
         <h1 className="text-xl font-semibold text-gray-800 hidden md:block">
           Sistema de Gestión Industrial
         </h1>
-        <h1 className="text-xl font-semibold text-gray-800 md:hidden">SGI</h1>
+        <h1 className="text-xl font-semibold text-gray-800 md:hidden">Maese</h1>
       </div>
       <div className="flex items-center pr-20 lg:pr-6">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="flex items-center">
+            <Button variant="ghost" size="sm" className="flex items-center ">
               <User className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Administrador</span>
               <span className="sm:hidden">Admin</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="bg-gray-800 text-white">
             <DropdownMenuItem onClick={() => logout()}>
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Sesión

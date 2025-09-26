@@ -19,9 +19,7 @@ export async function GET() {
       stockBajo,
       ordenesRetrasadas,
     ] = await Promise.all([
-      client.query(
-        "SELECT COUNT(*) AS count FROM Operarios WHERE activo = true"
-      ),
+      client.query("SELECT COUNT(*) AS count FROM Operarios"),
       client.query("SELECT COUNT(*) AS count FROM Clientes"),
       client.query("SELECT COUNT(*) AS count FROM Proveedores"),
       client.query(
@@ -38,7 +36,7 @@ export async function GET() {
       ),
       client.query("SELECT NOW() - MAX(fecha_pedido) AS tiempo FROM Compras"),
       client.query(
-        "SELECT nombre, unidad_medida, stock_actual AS count FROM Material_Prima WHERE stock_actual <= punto_pedido"
+        "SELECT nombre, unidad_medida, stock_actual AS count FROM Materia_Prima WHERE stock_actual <= punto_pedido"
       ),
       client.query(
         `SELECT c.nombre AS cliente_nombre
@@ -51,6 +49,29 @@ export async function GET() {
 
     client.release();
 
+    const formatInterval = (iv: any): string | null => {
+      if (!iv) return null;
+      const {
+        years = 0,
+        months = 0,
+        days = 0,
+        hours = 0,
+        minutes = 0,
+        seconds = 0,
+      } = iv;
+      const parts: string[] = [];
+      if (years) parts.push(`${years}a`);
+      if (months) parts.push(`${months}m`);
+      if (days) parts.push(`${days}d`);
+      if (hours) parts.push(`${hours}h`);
+      if (minutes) parts.push(`${minutes}min`);
+      if (seconds) {
+        const s = Math.floor(seconds);
+        if (s) parts.push(`${s}s`);
+      }
+      return parts.length ? parts.slice(0, 4).join(" ") : "0s";
+    };
+
     // Formatear la respuesta
     const response: Dashboard = {
       operariosActivos: parseInt(operariosActivos.rows[0].count, 10),
@@ -59,8 +80,8 @@ export async function GET() {
       comprasMes: parseInt(comprasMes.rows[0].count, 10),
       ventasMes: parseInt(ventasMes.rows[0].count, 10),
       ordenesPendientes: parseInt(ordenesPendientes.rows[0].count, 10),
-      ultimaOrden: ultimaOrden.rows[0].tiempo,
-      ultimaCompra: ultimaCompra.rows[0].tiempo,
+      ultimaOrden: formatInterval(ultimaOrden.rows[0].tiempo),
+      ultimaCompra: formatInterval(ultimaCompra.rows[0].tiempo),
       alertas: [
         ...stockBajo.rows.map((row) => ({
           nombre: "Stock bajo",

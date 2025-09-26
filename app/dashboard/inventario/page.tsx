@@ -487,7 +487,7 @@ export default function InventarioPage() {
         open={isMovimientoDialogOpen}
         onOpenChange={setIsMovimientoDialogOpen}
       >
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] bg-gray-100">
           <DialogHeader>
             <DialogTitle>Movimiento de Stock</DialogTitle>
             <DialogDescription>
@@ -547,10 +547,17 @@ export default function InventarioPage() {
             </div>
 
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={resetForm}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetForm}
+                className="bg-gray-800 text-white"
+              >
                 Cancelar
               </Button>
-              <Button type="submit">Registrar Movimiento</Button>
+              <Button type="submit" className="bg-gray-800 text-white">
+                Registrar Movimiento
+              </Button>
             </div>
           </form>
         </DialogContent>

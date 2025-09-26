@@ -17,7 +17,7 @@ export function MobileMenu() {
       {/* Botón hamburguesa - siempre visible en móvil */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 right-4 z-50 p-2 rounded-lg bg-white shadow-lg lg:hidden"
+        className="fixed top-4 right-4 z-50 p-2 rounded-lg bg-white shadow-lg lg:hidden bg-gray-800 text-white"
         aria-label="Toggle menu"
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

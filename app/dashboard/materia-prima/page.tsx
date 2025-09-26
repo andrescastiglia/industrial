@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,8 +50,11 @@ export default function MateriaPrimaPage() {
     refetch,
   } = useMateriaPrima() as {
     materiales: MateriaPrima[];
+    // eslint-disable-next-line no-unused-vars
     createMaterial: (data: MateriaPrima) => Promise<MateriaPrima>;
+    // eslint-disable-next-line no-unused-vars
     updateMaterial: (id: number, data: MateriaPrima) => Promise<MateriaPrima>;
+    // eslint-disable-next-line no-unused-vars
     deleteMaterial: (id: number) => Promise<void>;
     refetch: () => void;
   };
@@ -167,12 +170,12 @@ export default function MateriaPrimaPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Materia Prima
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingMaterial
@@ -343,10 +346,15 @@ export default function MateriaPrimaPage() {
                 </div>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="bg-gray-800 text-white"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="bg-gray-800 text-white">
                   {editingMaterial ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -606,6 +614,7 @@ export default function MateriaPrimaPage() {
                           size="sm"
                           onClick={() => handleEdit(material)}
                           title="Editar Material"
+                          className="bg-gray-800 text-white"
                         >
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">Editar Material</span>
@@ -617,6 +626,7 @@ export default function MateriaPrimaPage() {
                             handleDelete(material.materia_prima_id)
                           }
                           title="Eliminar Material"
+                          className="bg-gray-800 text-white"
                         >
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Eliminar Material</span>

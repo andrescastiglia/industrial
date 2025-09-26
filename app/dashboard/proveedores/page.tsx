@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/card";
 import { Plus, Edit, Trash2, Search, Truck, Phone, Mail } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-
 import { Proveedor } from "@/lib/database";
 
 export default function ProveedoresPage() {
@@ -138,12 +137,12 @@ export default function ProveedoresPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Proveedor
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingProveedor ? "Editar Proveedor" : "Nuevo Proveedor"}
@@ -226,10 +225,15 @@ export default function ProveedoresPage() {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="bg-gray-800 text-white"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="bg-gray-800 text-white">
                   {editingProveedor ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -378,6 +382,7 @@ export default function ProveedoresPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(proveedor)}
+                        className="bg-gray-800 text-white"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -385,6 +390,7 @@ export default function ProveedoresPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(proveedor.proveedor_id)}
+                        className="bg-gray-800 text-white"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

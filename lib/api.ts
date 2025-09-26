@@ -1,7 +1,9 @@
+import { RequestInit } from "next/dist/server/web/spec-extension/request";
 import { Dashboard } from "./dashboard";
 import {
   Cliente,
   Compra,
+  ComponenteProducto,
   MateriaPrima,
   Operario,
   OrdenProduccion,
@@ -145,12 +147,21 @@ class ApiClient {
     return this.getRequest<Producto>(`/productos/${id}`);
   }
 
-  async createProducto(data: Producto): Promise<Producto> {
-    return this.postRequest<Producto>("/productos", data);
+  async createProducto(
+    data: Producto,
+    componentes: ComponenteProducto[] = []
+  ): Promise<Producto> {
+    const payload = { ...data, componentes };
+    return this.postRequest<Producto>("/productos", payload);
   }
 
-  async updateProducto(id: number, data: Producto): Promise<Producto> {
-    return this.putRequest<Producto>(`/productos/${id}`, data);
+  async updateProducto(
+    id: number,
+    data: Producto,
+    componentes: ComponenteProducto[] = []
+  ): Promise<Producto> {
+    const payload = { ...data, componentes };
+    return this.putRequest<Producto>(`/productos/${id}`, payload);
   }
 
   async deleteProducto(id: number): Promise<boolean> {

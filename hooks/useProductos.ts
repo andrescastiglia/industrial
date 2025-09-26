@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
-import { Producto } from "@/lib/database";
+import { Producto, ComponenteProducto } from "@/lib/database";
 
 export function useProductos() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -20,9 +20,15 @@ export function useProductos() {
     }
   };
 
-  const createProducto = async (productoData: Producto) => {
+  const createProducto = async (
+    productoData: Producto,
+    componentes: ComponenteProducto[] = []
+  ) => {
     try {
-      const newProducto = await apiClient.createProducto(productoData);
+      const newProducto = await apiClient.createProducto(
+        productoData,
+        componentes
+      );
       setProductos((prev) => [newProducto as Producto, ...prev]);
       return newProducto;
     } catch (err) {
@@ -31,9 +37,17 @@ export function useProductos() {
     }
   };
 
-  const updateProducto = async (id: number, productoData: Producto) => {
+  const updateProducto = async (
+    id: number,
+    productoData: Producto,
+    componentes: ComponenteProducto[] = []
+  ) => {
     try {
-      const updatedProducto = await apiClient.updateProducto(id, productoData);
+      const updatedProducto = await apiClient.updateProducto(
+        id,
+        productoData,
+        componentes
+      );
       setProductos((prev) =>
         prev.map((producto: Producto) =>
           producto.producto_id === id ? (updatedProducto as Producto) : producto

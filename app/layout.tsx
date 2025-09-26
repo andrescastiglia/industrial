@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import "./globals.css";
+import "../styles/globals.css";
+import React from "react";
 
 export const metadata: Metadata = {
   title: "Maese",
@@ -21,12 +22,6 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-icon.png",
-  },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
   },
   verification: {
     google: "google-site-verification-code",
@@ -52,6 +47,13 @@ export const metadata: Metadata = {
     description: "Sistema integral para la gestión de procesos industriales",
     images: ["https://maese.com.ar/twitter-image.jpg"],
   },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
