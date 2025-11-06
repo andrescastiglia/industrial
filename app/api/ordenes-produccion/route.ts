@@ -7,7 +7,7 @@ export async function GET() {
 
     const result = await client.query(`
       SELECT 
-      op.orden_produccion_id,
+        op.orden_produccion_id,
         op.orden_venta_id,
         op.producto_id,
         op.cantidad_a_producir,
@@ -15,8 +15,25 @@ export async function GET() {
         op.fecha_inicio,
         op.fecha_fin_estimada,
         op.fecha_fin_real,
-        op.estado
+        op.estado,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'consumo_id', cmpp.consumo_id,
+              'orden_produccion_id', cmpp.orden_produccion_id,
+              'materia_prima_id', cmpp.materia_prima_id,
+              'cantidad_requerida', cmpp.cantidad_requerida,
+              'cantidad_usada', cmpp.cantidad_usada,
+              'merma_calculada', cmpp.merma_calculada,
+              'fecha_registro', cmpp.fecha_registro
+            ) ORDER BY cmpp.consumo_id
+          ) FILTER (WHERE cmpp.consumo_id IS NOT NULL),
+          '[]'::json
+        ) as consumos
       FROM Ordenes_Produccion op
+      LEFT JOIN Consumo_Materia_Prima_Produccion cmpp
+        ON op.orden_produccion_id = cmpp.orden_produccion_id
+      GROUP BY op.orden_produccion_id
       ORDER BY op.fecha_creacion DESC
     `);
 

@@ -7,7 +7,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import useDashboard from "@/hooks/useDashboard";
+import { useIndustrialWebSocket } from "@/hooks/useIndustrialWebSocket";
+import { IndustrialDevPanel } from "@/components/IndustrialDevPanel";
 import {
   ClipboardList,
   Package,
@@ -17,26 +20,62 @@ import {
   User,
   UserCheck,
   Warehouse,
+  Wifi,
+  WifiOff,
+  Bell,
 } from "lucide-react";
 
 export default function DashboardPage() {
   const { dashboard, isLoading } = useDashboard();
+  const { isConnected, dashboardData, notifications, clearNotifications } =
+    useIndustrialWebSocket();
 
-  if (isLoading) {
+  // Usar datos en tiempo real si están disponibles, sino usar datos estáticos
+  const currentData = dashboardData || dashboard;
+
+  if (isLoading && !currentData) {
     return <div>Cargando...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Panel Control</h2>
-        <p className="text-muted-foreground">
-          Resumen general del sistema de gestión industrial
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Panel Control</h2>
+          <p className="text-muted-foreground">
+            Resumen general del sistema de gestión industrial
+          </p>
+        </div>
+
+        {/* Indicador de conexión en tiempo real */}
+        <div className="flex items-center gap-4">
+          <Badge
+            variant={isConnected ? "default" : "secondary"}
+            className="flex items-center gap-1"
+          >
+            {isConnected ? (
+              <Wifi className="h-3 w-3" />
+            ) : (
+              <WifiOff className="h-3 w-3" />
+            )}
+            {isConnected ? "Tiempo Real" : "Datos Estáticos"}
+          </Badge>
+
+          {notifications.length > 0 && (
+            <Badge
+              variant="destructive"
+              className="flex items-center gap-1 cursor-pointer"
+              onClick={clearNotifications}
+            >
+              <Bell className="h-3 w-3" />
+              {notifications.length} alertas
+            </Badge>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className={isConnected ? "border-green-200 bg-green-50" : ""}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Operarios Activos
@@ -45,8 +84,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {dashboard?.operariosActivos}
+              {currentData?.operariosActivos}
             </div>
+            {isConnected && dashboardData && (
+              <p className="text-xs text-green-600 mt-1">
+                📊 Actualizado en tiempo real
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -165,19 +209,50 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {dashboard?.alertas.map((alerta, index) => (
-                <div className="flex items-center" key={index}>
-                  <div className="w-2 h-2 bg-red-600 rounded-full mr-3"></div>
-                  <div className="text-sm">
-                    <p className="font-medium">{alerta.nombre}</p>
-                    <p className="text-muted-foreground">{alerta.detalle}</p>
-                  </div>
-                </div>
-              ))}
+              {/* Mostrar notificaciones en tiempo real si están disponibles */}
+              {notifications.length > 0
+                ? notifications.slice(0, 3).map((notification) => (
+                    <div className="flex items-center" key={notification.id}>
+                      <div
+                        className={`w-2 h-2 rounded-full mr-3 ${
+                          notification.type === "error"
+                            ? "bg-red-600"
+                            : notification.type === "warning"
+                              ? "bg-yellow-500"
+                              : notification.type === "success"
+                                ? "bg-green-600"
+                                : "bg-blue-600"
+                        }`}
+                      ></div>
+                      <div className="text-sm">
+                        <p className="font-medium">{notification.title}</p>
+                        <p className="text-muted-foreground">
+                          {notification.message}
+                        </p>
+                        {isConnected && (
+                          <p className="text-xs text-green-600">🔴 En vivo</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                : dashboard?.alertas.map((alerta, index) => (
+                    <div className="flex items-center" key={index}>
+                      <div className="w-2 h-2 bg-red-600 rounded-full mr-3"></div>
+                      <div className="text-sm">
+                        <p className="font-medium">{alerta.nombre}</p>
+                        <p className="text-muted-foreground">
+                          {alerta.detalle}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Panel de DevTools Industrial (solo en desarrollo) */}
+      <IndustrialDevPanel />
     </div>
   );
 }
