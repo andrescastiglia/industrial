@@ -32,7 +32,6 @@ import {
   Edit,
   Trash2,
   Search,
-  Eye,
   Clock,
   AlertCircle,
   Package,
@@ -40,7 +39,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrdenesProduccion } from "@/hooks/useOrdenesProduccion";
 import { useMateriaPrima } from "@/hooks/useMateriaPrima";
 import { useProductos } from "@/hooks/useProductos";
@@ -62,8 +60,6 @@ export default function OrdenesProduccionPage() {
   const [editingOrden, setEditingOrden] = useState<OrdenProduccion | null>(
     null
   );
-  const [, setViewingOrden] = useState<OrdenProduccion | null>(null);
-  const [, setIsViewDialogOpen] = useState<boolean>(false);
   const [consumosMateriaPrimaProduccion, setConsumosMateriaPrimaProduccion] =
     useState<ConsumoMateriaPrimaProduccion[]>([]);
 
@@ -174,11 +170,6 @@ export default function OrdenesProduccionPage() {
     setIsDialogOpen(true);
   };
 
-  const handleView = (orden: OrdenProduccion) => {
-    setViewingOrden(orden);
-    setIsViewDialogOpen(true);
-  };
-
   const handleDelete = async (orden_produccion_id: number) => {
     try {
       await deleteOrden(orden_produccion_id);
@@ -272,254 +263,144 @@ export default function OrdenesProduccionPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs defaultValue="general" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger
-                  value="general"
-                  className="bg-gray-200 text-gray-400 data-[state=active]:bg-white data-[state=active]:text-black"
-                >
-                  Información General
-                </TabsTrigger>
-                <TabsTrigger
-                  value="materiales"
-                  className="bg-gray-200 text-gray-400 data-[state=active]:bg-white data-[state=active]:text-black"
-                >
-                  Consumo de Materiales
-                </TabsTrigger>
-              </TabsList>
-
-              <form onSubmit={handleSubmit}>
-                <TabsContent value="general" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="producto_id">Producto a Producir *</Label>
-                      <select
-                        id="producto_id"
-                        name="producto_id"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                        defaultValue={
-                          editingOrden?.producto_id || productos[0]?.producto_id
-                        }
-                        required
-                      >
-                        {productos.map((producto: Producto) => (
-                          <option
-                            key={producto.producto_id}
-                            value={producto.producto_id}
-                          >
-                            {producto.nombre_modelo}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cantidad_a_producir">
-                        Cantidad a Producir *
-                      </Label>
-                      <Input
-                        id="cantidad_a_producir"
-                        name="cantidad_a_producir"
-                        type="number"
-                        min="1"
-                        defaultValue={editingOrden?.cantidad_a_producir || ""}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fecha_creacion">
-                        Fecha de Creación *
-                      </Label>
-                      <Input
-                        id="fecha_creacion"
-                        name="fecha_creacion"
-                        type="datetime-local"
-                        defaultValue={
-                          editingOrden?.fecha_creacion
-                            ? new Date(editingOrden.fecha_creacion)
-                                .toISOString()
-                                .slice(0, 16)
-                            : new Date().toISOString().slice(0, 16)
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fecha_fin_estimada">
-                        Fecha Fin Estimada *
-                      </Label>
-                      <Input
-                        id="fecha_fin_estimada"
-                        name="fecha_fin_estimada"
-                        type="datetime-local"
-                        defaultValue={
-                          editingOrden?.fecha_fin_estimada
-                            ? new Date(editingOrden.fecha_fin_estimada)
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fecha_inicio">Fecha de Inicio</Label>
-                      <Input
-                        id="fecha_inicio"
-                        name="fecha_inicio"
-                        type="datetime-local"
-                        defaultValue={
-                          editingOrden?.fecha_inicio
-                            ? new Date(editingOrden.fecha_inicio)
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fecha_fin_real">Fecha Fin Real</Label>
-                      <Input
-                        id="fecha_fin_real"
-                        name="fecha_fin_real"
-                        type="datetime-local"
-                        defaultValue={
-                          editingOrden?.fecha_fin_real
-                            ? new Date(editingOrden.fecha_fin_real)
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="estado">Estado *</Label>
-                      <select
-                        id="estado"
-                        name="estado"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                        defaultValue={editingOrden?.estado || "Planificada"}
-                        required
-                      >
-                        <option value="Planificada">Planificada</option>
-                        <option value="En Proceso">En Proceso</option>
-                        <option value="Pausada">Pausada</option>
-                        <option value="Completada">Completada</option>
-                        <option value="Cancelada">Cancelada</option>
-                      </select>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="materiales" className="space-y-4">
-                  <div className="mb-4">
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        <span className="font-semibold">
-                          ℹ️ Consumos Automáticos:
-                        </span>{" "}
-                        Los materiales se calculan automáticamente basándose en
-                        los componentes del producto seleccionado y la cantidad
-                        a producir. Los consumos se recalcularán si cambias la
-                        cantidad.
-                      </p>
-                    </div>
-                  </div>
-
-                  <h4 className="text-lg font-medium">
-                    Consumo de Materia Prima (Calculado Automáticamente)
-                  </h4>
-
-                  <div className="space-y-3">
-                    {consumosMateriaPrimaProduccion &&
-                    consumosMateriaPrimaProduccion.length > 0 ? (
-                      consumosMateriaPrimaProduccion.map((consumo, index) => {
-                        const material = materiales.find(
-                          (m: MateriaPrima) =>
-                            m.materia_prima_id === consumo.materia_prima_id
-                        );
-                        return (
-                          <Card
-                            key={index}
-                            className="p-4 bg-white border border-gray-200"
-                          >
-                            <div className="grid grid-cols-12 gap-3 items-center">
-                              <div className="col-span-5">
-                                <p className="text-sm font-medium text-gray-600">
-                                  Materia Prima
-                                </p>
-                                <p className="font-semibold text-gray-900">
-                                  {material?.nombre ||
-                                    `Material #${consumo.materia_prima_id}`}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Stock disponible:{" "}
-                                  {material?.stock_actual || 0}{" "}
-                                  {material?.unidad_medida || "ud"}
-                                </p>
-                              </div>
-
-                              <div className="col-span-2 text-center">
-                                <p className="text-sm font-medium text-gray-600">
-                                  Cantidad Requerida
-                                </p>
-                                <p className="font-semibold text-lg text-gray-900">
-                                  {consumo.cantidad_requerida.toFixed(2)}
-                                </p>
-                              </div>
-
-                              <div className="col-span-2 text-center">
-                                <p className="text-sm font-medium text-gray-600">
-                                  Cantidad Usada
-                                </p>
-                                <p className="font-semibold text-lg text-gray-900">
-                                  {consumo.cantidad_usada?.toFixed(2) || "0.00"}
-                                </p>
-                              </div>
-
-                              <div className="col-span-2 text-center">
-                                <p className="text-sm font-medium text-gray-600">
-                                  Merma
-                                </p>
-                                <p className="font-semibold text-lg text-orange-600">
-                                  {(consumo.merma_calculada || 0).toFixed(2)}
-                                </p>
-                              </div>
-                            </div>
-                          </Card>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center py-8 p-4 border border-dashed border-gray-300 rounded-lg">
-                        <p className="text-muted-foreground">
-                          No hay materiales para este producto. Asegúrate de que
-                          el producto tenga componentes definidos.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <div className="flex justify-end space-x-2 pt-4 border-t">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={resetForm}
-                    className="bg-gray-800 text-white"
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="producto_id">Producto a Producir *</Label>
+                  <select
+                    id="producto_id"
+                    name="producto_id"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    defaultValue={
+                      editingOrden?.producto_id || productos[0]?.producto_id
+                    }
+                    required
                   >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" className="bg-gray-800 text-white">
-                    {editingOrden ? "Actualizar" : "Crear"}
-                  </Button>
+                    {productos.map((producto: Producto) => (
+                      <option
+                        key={producto.producto_id}
+                        value={producto.producto_id}
+                      >
+                        {producto.nombre_modelo}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </form>
-            </Tabs>
+                <div className="space-y-2">
+                  <Label htmlFor="cantidad_a_producir">
+                    Cantidad a Producir *
+                  </Label>
+                  <Input
+                    id="cantidad_a_producir"
+                    name="cantidad_a_producir"
+                    type="number"
+                    min="1"
+                    defaultValue={editingOrden?.cantidad_a_producir || ""}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_creacion">Fecha de Creación *</Label>
+                  <Input
+                    id="fecha_creacion"
+                    name="fecha_creacion"
+                    type="datetime-local"
+                    defaultValue={
+                      editingOrden?.fecha_creacion
+                        ? new Date(editingOrden.fecha_creacion)
+                            .toISOString()
+                            .slice(0, 16)
+                        : new Date().toISOString().slice(0, 16)
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_fin_estimada">
+                    Fecha Fin Estimada *
+                  </Label>
+                  <Input
+                    id="fecha_fin_estimada"
+                    name="fecha_fin_estimada"
+                    type="datetime-local"
+                    defaultValue={
+                      editingOrden?.fecha_fin_estimada
+                        ? new Date(editingOrden.fecha_fin_estimada)
+                            .toISOString()
+                            .slice(0, 16)
+                        : ""
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_inicio">Fecha de Inicio</Label>
+                  <Input
+                    id="fecha_inicio"
+                    name="fecha_inicio"
+                    type="datetime-local"
+                    defaultValue={
+                      editingOrden?.fecha_inicio
+                        ? new Date(editingOrden.fecha_inicio)
+                            .toISOString()
+                            .slice(0, 16)
+                        : ""
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_fin_real">Fecha Fin Real</Label>
+                  <Input
+                    id="fecha_fin_real"
+                    name="fecha_fin_real"
+                    type="datetime-local"
+                    defaultValue={
+                      editingOrden?.fecha_fin_real
+                        ? new Date(editingOrden.fecha_fin_real)
+                            .toISOString()
+                            .slice(0, 16)
+                        : ""
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="estado">Estado *</Label>
+                  <select
+                    id="estado"
+                    name="estado"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    defaultValue={editingOrden?.estado || "Planificada"}
+                    required
+                  >
+                    <option value="Planificada">Planificada</option>
+                    <option value="En Proceso">En Proceso</option>
+                    <option value="Pausada">Pausada</option>
+                    <option value="Completada">Completada</option>
+                    <option value="Cancelada">Cancelada</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="bg-gray-800 text-white"
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-gray-800 text-white">
+                  {editingOrden ? "Actualizar" : "Crear"}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -670,16 +551,6 @@ export default function OrdenesProduccionPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleView(orden)}
-                          title="Ver Detalles"
-                          className="bg-gray-800 text-white"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">Ver Detalles</span>
-                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
