@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
+import { calculateMaterialConsumption } from "@/lib/production-calculations";
 
 export async function GET(
   request: NextRequest,
@@ -107,7 +108,6 @@ export async function PUT(
       fecha_fin_estimada,
       fecha_fin_real,
       estado,
-      consumos = [],
     } = body;
 
     const client = await pool.connect();
@@ -115,33 +115,13 @@ export async function PUT(
     try {
       await client.query("BEGIN");
 
-      // Actualizar orden de producción
-      const result = await client.query(
-        `
-        UPDATE Ordenes_Produccion SET
-          orden_venta_id = $1,
-          producto_id = $2,
-          cantidad_a_producir = $3,
-          fecha_inicio = $4,
-          fecha_fin_estimada = $5,
-          fecha_fin_real = $6,
-          estado = $7
-        WHERE orden_produccion_id = $8
-        RETURNING *
-      `,
-        [
-          orden_venta_id,
-          producto_id,
-          cantidad_a_producir,
-          fecha_inicio,
-          fecha_fin_estimada,
-          fecha_fin_real,
-          estado,
-          params.id,
-        ]
+      // Obtener orden actual para comparar cantidad
+      const ordenActualResult = await client.query(
+        `SELECT producto_id, cantidad_a_producir FROM Ordenes_Produccion WHERE orden_produccion_id = $1`,
+        [params.id]
       );
 
-      if (result.rows.length === 0) {
+      if (ordenActualResult.rows.length === 0) {
         await client.query("ROLLBACK");
         client.release();
         return NextResponse.json(
@@ -150,36 +130,86 @@ export async function PUT(
         );
       }
 
-      // Eliminar consumos existentes
-      await client.query(
-        "DELETE FROM Consumo_Materia_Prima_Produccion WHERE orden_produccion_id = $1",
-        [params.id]
+      const ordenActual = ordenActualResult.rows[0];
+      const cantidadCambio =
+        cantidad_a_producir &&
+        cantidad_a_producir !== ordenActual.cantidad_a_producir;
+      const productoCambio =
+        producto_id && producto_id !== ordenActual.producto_id;
+
+      // Actualizar orden de producción
+      const result = await client.query(
+        `
+        UPDATE Ordenes_Produccion SET
+          orden_venta_id = COALESCE($1, orden_venta_id),
+          producto_id = COALESCE($2, producto_id),
+          cantidad_a_producir = COALESCE($3, cantidad_a_producir),
+          fecha_inicio = COALESCE($4, fecha_inicio),
+          fecha_fin_estimada = COALESCE($5, fecha_fin_estimada),
+          fecha_fin_real = COALESCE($6, fecha_fin_real),
+          estado = COALESCE($7, estado)
+        WHERE orden_produccion_id = $8
+        RETURNING *
+      `,
+        [
+          orden_venta_id || null,
+          producto_id || null,
+          cantidad_a_producir || null,
+          fecha_inicio || null,
+          fecha_fin_estimada || null,
+          fecha_fin_real || null,
+          estado || null,
+          params.id,
+        ]
       );
 
-      // Insertar nuevos consumos
-      for (const consumo of consumos) {
+      const ordenActualizada = result.rows[0];
+
+      // Si cambió cantidad o producto, recalcular consumos
+      if (cantidadCambio || productoCambio) {
+        // Eliminar consumos existentes
         await client.query(
-          `
-          INSERT INTO Consumo_Materia_Prima_Produccion (
-            orden_produccion_id, materia_prima_id, cantidad_requerida,
-            cantidad_usada, merma_calculada, fecha_registro
-          ) VALUES ($1, $2, $3, $4, $5, $6)
-        `,
-          [
-            params.id,
-            consumo.materia_prima_id,
-            consumo.cantidad_requerida,
-            consumo.cantidad_usada,
-            consumo.merma_calculada,
-            consumo.fecha_registro,
-          ]
+          "DELETE FROM Consumo_Materia_Prima_Produccion WHERE orden_produccion_id = $1",
+          [params.id]
         );
+
+        // Calcular nuevos consumos
+        const consumosCalculados = await calculateMaterialConsumption(
+          ordenActualizada.producto_id,
+          ordenActualizada.cantidad_a_producir
+        );
+
+        // Insertar nuevos consumos calculados
+        for (const consumo of consumosCalculados) {
+          await client.query(
+            `
+            INSERT INTO Consumo_Materia_Prima_Produccion (
+              orden_produccion_id, materia_prima_id, cantidad_requerida,
+              cantidad_usada, merma_calculada, fecha_registro
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+            [
+              params.id,
+              consumo.materia_prima_id,
+              consumo.cantidad_total,
+              0,
+              0,
+              new Date(),
+            ]
+          );
+        }
       }
 
       await client.query("COMMIT");
       client.release();
 
-      return NextResponse.json(result.rows[0]);
+      return NextResponse.json({
+        ...ordenActualizada,
+        mensaje:
+          cantidadCambio || productoCambio
+            ? "Orden actualizada y consumos recalculados"
+            : "Orden actualizada",
+      });
     } catch (error) {
       await client.query("ROLLBACK");
       client.release();

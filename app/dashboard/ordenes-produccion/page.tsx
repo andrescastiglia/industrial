@@ -105,55 +105,23 @@ export default function OrdenesProduccionPage() {
   };
 
   const agregarConsumo = () => {
-    const nuevoConsumo: ConsumoMateriaPrimaProduccion = {
-      consumo_id: Date.now(),
-      orden_produccion_id: editingOrden?.orden_produccion_id || 0,
-      materia_prima_id: materiales[0]?.materia_prima_id || 1,
-      cantidad_requerida: 1,
-      cantidad_usada: 0,
-      merma_calculada: 0,
-      fecha_registro: new Date(),
-    };
-    setConsumosMateriaPrimaProduccion([
-      ...consumosMateriaPrimaProduccion,
-      nuevoConsumo,
-    ]);
+    // Función deprecada - Los consumos se calculan automáticamente
+    console.warn(
+      "agregarConsumo está deprecado. Los consumos se calculan automáticamente."
+    );
   };
 
-  const actualizarConsumo = (
-    index: number,
-    campo: string,
-    valor: string | number
-  ) => {
-    const nuevosConsumos = [...consumosMateriaPrimaProduccion];
-    nuevosConsumos[index] = {
-      ...nuevosConsumos[index],
-      [campo]:
-        campo.includes("cantidad") || campo.includes("merma")
-          ? typeof valor === "string"
-            ? Number.parseFloat(valor) || 0
-            : valor
-          : valor,
-    };
-
-    if (campo === "cantidad_usada") {
-      const cantidadRequerida = nuevosConsumos[index].cantidad_requerida;
-      const cantidadUsada =
-        typeof valor === "string"
-          ? Number.parseFloat(valor) || 0
-          : (valor as number);
-      nuevosConsumos[index].merma_calculada = Math.max(
-        0,
-        cantidadUsada - cantidadRequerida
-      );
-    }
-
-    setConsumosMateriaPrimaProduccion(nuevosConsumos);
+  const actualizarConsumo = () => {
+    // Función deprecada - Los consumos son solo lectura
+    console.warn(
+      "actualizarConsumo está deprecado. Los consumos son calculados automáticamente."
+    );
   };
 
-  const eliminarConsumo = (index: number) => {
-    setConsumosMateriaPrimaProduccion(
-      consumosMateriaPrimaProduccion.filter((_, i) => i !== index)
+  const eliminarConsumo = () => {
+    // Función deprecada - Los consumos se calculan automáticamente
+    console.warn(
+      "eliminarConsumo está deprecado. Los consumos se calculan automáticamente."
     );
   };
 
@@ -182,7 +150,7 @@ export default function OrdenesProduccionPage() {
           ? new Date(formData.get("fecha_fin_real") as string)
           : undefined,
         estado: formData.get("estado") as string,
-        consumos: consumosMateriaPrimaProduccion,
+        // Los consumos se calculan automáticamente en el servidor
       };
 
       if (editingOrden) {
@@ -201,6 +169,7 @@ export default function OrdenesProduccionPage() {
 
   const handleEdit = (orden: OrdenProduccion) => {
     setEditingOrden(orden);
+    // Cargar consumos para mostrarlos (solo lectura)
     setConsumosMateriaPrimaProduccion(orden.consumos || []);
     setIsDialogOpen(true);
   };
@@ -448,123 +417,89 @@ export default function OrdenesProduccionPage() {
                 </TabsContent>
 
                 <TabsContent value="materiales" className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-lg font-medium">
-                      Consumo de Materia Prima
-                    </h4>
-                    <Button
-                      type="button"
-                      onClick={agregarConsumo}
-                      size="sm"
-                      className="bg-gray-800 text-white"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Agregar Material
-                    </Button>
+                  <div className="mb-4">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-semibold">
+                          ℹ️ Consumos Automáticos:
+                        </span>{" "}
+                        Los materiales se calculan automáticamente basándose en
+                        los componentes del producto seleccionado y la cantidad
+                        a producir. Los consumos se recalcularán si cambias la
+                        cantidad.
+                      </p>
+                    </div>
                   </div>
 
+                  <h4 className="text-lg font-medium">
+                    Consumo de Materia Prima (Calculado Automáticamente)
+                  </h4>
+
                   <div className="space-y-3">
-                    {consumosMateriaPrimaProduccion.map((consumo, index) => (
-                      <Card key={index} className="p-4">
-                        <div className="grid grid-cols-12 gap-3 items-end">
-                          <div className="col-span-4">
-                            <Label className="text-sm">Materia Prima</Label>
-                            <select
-                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background"
-                              value={consumo.materia_prima_id}
-                              onChange={(e) =>
-                                actualizarConsumo(
-                                  index,
-                                  "materia_prima_id",
-                                  e.target.value
-                                )
-                              }
-                            >
-                              {materiales.map((mp: MateriaPrima) => (
-                                <option
-                                  key={mp.materia_prima_id}
-                                  value={mp.materia_prima_id}
-                                >
-                                  {mp.nombre}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Stock:{" "}
-                              {
-                                materiales.find(
-                                  (m: MateriaPrima) =>
-                                    m.materia_prima_id ===
-                                    consumo.materia_prima_id
-                                )?.stock_actual
-                              }{" "}
-                              {getMaterialUnidad(consumo.materia_prima_id)}
+                    {consumosMateriaPrimaProduccion &&
+                    consumosMateriaPrimaProduccion.length > 0 ? (
+                      consumosMateriaPrimaProduccion.map((consumo, index) => {
+                        const material = materiales.find(
+                          (m: MateriaPrima) =>
+                            m.materia_prima_id === consumo.materia_prima_id
+                        );
+                        return (
+                          <Card
+                            key={index}
+                            className="p-4 bg-white border border-gray-200"
+                          >
+                            <div className="grid grid-cols-12 gap-3 items-center">
+                              <div className="col-span-5">
+                                <p className="text-sm font-medium text-gray-600">
+                                  Materia Prima
+                                </p>
+                                <p className="font-semibold text-gray-900">
+                                  {material?.nombre ||
+                                    `Material #${consumo.materia_prima_id}`}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Stock disponible:{" "}
+                                  {material?.stock_actual || 0}{" "}
+                                  {material?.unidad_medida || "ud"}
+                                </p>
+                              </div>
+
+                              <div className="col-span-2 text-center">
+                                <p className="text-sm font-medium text-gray-600">
+                                  Cantidad Requerida
+                                </p>
+                                <p className="font-semibold text-lg text-gray-900">
+                                  {consumo.cantidad_requerida.toFixed(2)}
+                                </p>
+                              </div>
+
+                              <div className="col-span-2 text-center">
+                                <p className="text-sm font-medium text-gray-600">
+                                  Cantidad Usada
+                                </p>
+                                <p className="font-semibold text-lg text-gray-900">
+                                  {consumo.cantidad_usada?.toFixed(2) || "0.00"}
+                                </p>
+                              </div>
+
+                              <div className="col-span-2 text-center">
+                                <p className="text-sm font-medium text-gray-600">
+                                  Merma
+                                </p>
+                                <p className="font-semibold text-lg text-orange-600">
+                                  {(consumo.merma_calculada || 0).toFixed(2)}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-
-                          <div className="col-span-2">
-                            <Label className="text-sm">Cant. Requerida</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={consumo.cantidad_requerida}
-                              onChange={(e) =>
-                                actualizarConsumo(
-                                  index,
-                                  "cantidad_requerida",
-                                  e.target.value
-                                )
-                              }
-                              className="h-9"
-                            />
-                          </div>
-
-                          <div className="col-span-2">
-                            <Label className="text-sm">Cant. Usada</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={consumo.cantidad_usada}
-                              onChange={(e) =>
-                                actualizarConsumo(
-                                  index,
-                                  "cantidad_usada",
-                                  e.target.value
-                                )
-                              }
-                              className="h-9"
-                            />
-                          </div>
-
-                          <div className="col-span-2">
-                            <Label className="text-sm">Merma</Label>
-                            <div className="h-9 flex items-center text-sm font-medium">
-                              {consumo.merma_calculada.toFixed(2)}{" "}
-                              {getMaterialUnidad(consumo.materia_prima_id)}
-                            </div>
-                          </div>
-
-                          <div className="col-span-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => eliminarConsumo(index)}
-                              className="h-9 w-full bg-gray-800 text-white"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-
-                    {consumosMateriaPrimaProduccion.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No hay materiales agregados. Haz clic en &ldquo;Agregar
-                        Material&rdquo; para comenzar.
+                          </Card>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-8 p-4 border border-dashed border-gray-300 rounded-lg">
+                        <p className="text-muted-foreground">
+                          No hay materiales para este producto. Asegúrate de que
+                          el producto tenga componentes definidos.
+                        </p>
                       </div>
                     )}
                   </div>

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
+import { calculateMaterialConsumption } from "@/lib/production-calculations";
 
 export async function GET() {
   try {
@@ -61,8 +62,15 @@ export async function POST(request: NextRequest) {
       fecha_fin_estimada,
       fecha_fin_real,
       estado,
-      consumos = [],
     } = body;
+
+    // Validar campos requeridos
+    if (!producto_id || !cantidad_a_producir) {
+      return NextResponse.json(
+        { error: "producto_id y cantidad_a_producir son requeridos" },
+        { status: 400 }
+      );
+    }
 
     const client = await pool.connect();
 
@@ -92,8 +100,14 @@ export async function POST(request: NextRequest) {
 
       const nuevaOrden = ordenResult.rows[0];
 
-      // Insertar consumos de materia prima
-      for (const consumo of consumos) {
+      // Calcular consumos automáticamente
+      const consumosCalculados = await calculateMaterialConsumption(
+        producto_id,
+        cantidad_a_producir
+      );
+
+      // Insertar consumos calculados
+      for (const consumo of consumosCalculados) {
         await client.query(
           `
           INSERT INTO Consumo_Materia_Prima_Produccion (
@@ -110,10 +124,10 @@ export async function POST(request: NextRequest) {
           [
             nuevaOrden.orden_produccion_id,
             consumo.materia_prima_id,
-            consumo.cantidad_requerida,
-            consumo.cantidad_usada,
-            consumo.merma_calculada,
-            consumo.fecha_registro,
+            consumo.cantidad_total,
+            0,
+            0,
+            new Date(),
           ]
         );
       }
@@ -121,7 +135,14 @@ export async function POST(request: NextRequest) {
       await client.query("COMMIT");
       client.release();
 
-      return NextResponse.json(nuevaOrden, { status: 201 });
+      return NextResponse.json(
+        {
+          ...nuevaOrden,
+          consumos: consumosCalculados,
+          mensaje: "Orden creada con consumos calculados automáticamente",
+        },
+        { status: 201 }
+      );
     } catch (error) {
       await client.query("ROLLBACK");
       client.release();
