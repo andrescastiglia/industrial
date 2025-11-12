@@ -48,6 +48,7 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@sentry/nextjs": "^10.25.0",
     "@tailwindcss/postcss": "^4.1.17",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -73,6 +74,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
+    "winston": "^3.18.3",
     "ws": "^8.18.3",
     "zod": "^4.1.12"
   },
@@ -82,14 +84,14 @@
     "@eslint/js": "^9.39.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/eslint": "^9.6.1",
-    "@types/node": "^24.10.0",
+    "@types/node": "^24.10.1",
     "@types/pg": "^8.15.6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/ws": "^8.18.1",
-    "autoprefixer": "^10.4.21",
+    "autoprefixer": "^10.4.22",
     "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.1",
+    "eslint-config-next": "^16.0.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -98,7 +100,7 @@
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.3"
+    "typescript-eslint": "^8.46.4"
   },
   "overrides": {
     "eslint": "$eslint"
