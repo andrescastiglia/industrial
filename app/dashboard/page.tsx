@@ -1,153 +1,131 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import useDashboard from "@/hooks/useDashboard";
-import { useIndustrialWebSocket } from "@/hooks/useIndustrialWebSocket";
-import { IndustrialDevPanel } from "@/components/IndustrialDevPanel";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { ProduccionChart } from "@/components/dashboard/ProduccionChart";
+import { AlertasOrdenes } from "@/components/dashboard/AlertasOrdenes";
 import {
-  ClipboardList,
+  Factory,
   Package,
-  ShoppingCart,
   TrendingUp,
-  Truck,
-  User,
-  UserCheck,
-  Warehouse,
-  Wifi,
-  WifiOff,
-  Bell,
+  DollarSign,
+  RefreshCw,
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { dashboard, isLoading } = useDashboard();
-  const { isConnected, dashboardData, notifications, clearNotifications } =
-    useIndustrialWebSocket();
+  const { metrics, loading, error, lastUpdate, refresh } = useDashboard();
 
-  // Usar datos en tiempo real si están disponibles, sino usar datos estáticos
-  const currentData = dashboardData || dashboard;
-
-  if (isLoading && !currentData) {
-    return <div>Cargando...</div>;
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <p className="text-destructive text-lg">Error al cargar el dashboard</p>
+        <p className="text-muted-foreground text-sm">{error}</p>
+        <Button onClick={refresh}>Reintentar</Button>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Panel Control</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard Ejecutivo</h2>
           <p className="text-muted-foreground">
-            Resumen general del sistema de gestión industrial
+            Métricas clave y tendencias de producción
           </p>
         </div>
 
-        {/* Indicador de conexión en tiempo real */}
-        <div className="flex items-center gap-4">
-          <Badge
-            variant={isConnected ? "default" : "secondary"}
-            className="flex items-center gap-1"
-          >
-            {isConnected ? (
-              <Wifi className="h-3 w-3" />
-            ) : (
-              <WifiOff className="h-3 w-3" />
-            )}
-            {isConnected ? "Tiempo Real" : "Datos Estáticos"}
-          </Badge>
-
-          {notifications.length > 0 && (
-            <Badge
-              variant="destructive"
-              className="flex items-center gap-1 cursor-pointer"
-              onClick={clearNotifications}
-            >
-              <Bell className="h-3 w-3" />
-              {notifications.length} alertas
+        <div className="flex items-center gap-3">
+          {lastUpdate && (
+            <Badge variant="outline" className="text-xs">
+              Actualizado: {new Date(lastUpdate).toLocaleTimeString('es-CO')}
             </Badge>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refresh}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
         </div>
       </div>
 
+      {/* KPIs Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className={isConnected ? "border-green-200 bg-green-50" : ""}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Operarios Activos
-            </CardTitle>
-            <UserCheck className={`h-4 w-4 text-blue-600`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {currentData?.operariosActivos}
-            </div>
-            {isConnected && dashboardData && (
-              <p className="text-xs text-green-600 mt-1">
-                📊 Actualizado en tiempo real
-              </p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
-            <User className={`h-4 w-4 text-green-600`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboard?.clientes}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Proveedores</CardTitle>
-            <Truck className={`h-4 w-4 text-purple-600`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboard?.proveedores}</div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Producción"
+          value={metrics?.produccion.total || 0}
+          subtitle="órdenes completadas"
+          variacion={metrics?.produccion.variacion_porcentaje}
+          tendencia={metrics?.produccion.tendencia}
+          formato="numero"
+          icon={<Factory className="h-4 w-4" />}
+          loading={loading}
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Productos Stock
-            </CardTitle>
-            <Package className={`h-4 w-4 text-orange-600`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">-</div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Inventario"
+          value={metrics?.inventario.total || 0}
+          subtitle={`${metrics?.inventario.items_bajo_stock || 0} items bajo stock`}
+          variacion={metrics?.inventario.variacion_porcentaje}
+          tendencia={metrics?.inventario.tendencia}
+          formato="numero"
+          icon={<Package className="h-4 w-4" />}
+          loading={loading}
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Compras del Mes
-            </CardTitle>
-            <ShoppingCart className={`h-4 w-4 text-red-600`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboard?.comprasMes}</div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Ventas"
+          value={metrics?.ventas.total || 0}
+          subtitle="ingresos del mes"
+          variacion={metrics?.ventas.variacion_porcentaje}
+          tendencia={metrics?.ventas.tendencia}
+          formato="moneda"
+          icon={<TrendingUp className="h-4 w-4" />}
+          loading={loading}
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Ventas del Mes
-            </CardTitle>
-            <TrendingUp className={`h-4 w-4 text-esmerald-600`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboard?.ventasMes}</div>
-          </CardContent>
-        </Card>
-        <Card>
+        <KPICard
+          title="Costos"
+          value={metrics?.costos.total || 0}
+          subtitle="compras del mes"
+          variacion={metrics?.costos.variacion_porcentaje}
+          tendencia={metrics?.costos.tendencia}
+          formato="moneda"
+          icon={<DollarSign className="h-4 w-4" />}
+          loading={loading}
+        />
+      </div>
+
+      {/* Charts and Alerts Row */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Production Chart - 2/3 width */}
+        <div className="md:col-span-2">
+          <ProduccionChart
+            data={metrics?.produccion_diaria || []}
+            loading={loading}
+          />
+        </div>
+
+        {/* Alerts - 1/3 width */}
+        <div className="md:col-span-1">
+          <AlertasOrdenes
+            vencidas={metrics?.ordenes.vencidas || 0}
+            en_riesgo={metrics?.ordenes.en_riesgo || 0}
+            completadas_mes={metrics?.ordenes.completadas_mes || 0}
+            loading={loading}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Órdenes Producción Pendientes
