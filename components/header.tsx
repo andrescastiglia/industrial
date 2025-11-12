@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { logout } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { LogOut, User } from "lucide-react";
 import {
   DropdownMenu,
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function Header() {
+  const { logout } = useAuth();
+
   return (
     <header className="bg-white shadow-sm border-b h-16 flex items-center sticky top-0">
       <div className="flex-1 px-6">

@@ -1,8 +1,31 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
+import {
+  authenticateApiRequest,
+  checkApiPermission,
+  logApiOperation,
+} from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "read:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "GET",
+      "/api/proveedores",
+      user,
+      "Listar todos los proveedores"
+    );
+
     const client = await pool.connect();
 
     const result = await client.query(`
@@ -24,8 +47,27 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "write:all");
+    if (permissionError) return permissionError;
+
     const body = await request.json();
     const { nombre, contacto, direccion, telefono, email, cuit } = body;
+
+    logApiOperation(
+      "POST",
+      "/api/proveedores",
+      user,
+      "Crear nuevo proveedor",
+      nombre
+    );
 
     const client = await pool.connect();
 

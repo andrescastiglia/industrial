@@ -1,65 +1,10 @@
 # Roadmap de Desarrollo y Mejoras - Sistema Industrial
 
-**Versión**: 1.0  
-**Actualización**: Noviembre 2025  
-**Horizonte**: Q1 2025 - Q4 2025
+## 📊 Fase 1
 
 ---
 
-## 🎯 Visión General
-
-El Sistema Industrial está en **Fase 1 (MVP funcional)**. Este documento describe:
-
-1. **Mejoras inmediatas** (próximas 2-4 semanas)
-2. **Fase 2 - Analítica** (Q1 2025, 2 meses)
-3. **Fase 3 - Inteligencia Artificial** (Q2 2025, 2 meses)
-4. **Fase 4 - Escalabilidad Empresarial** (Q3-Q4 2025, 4 meses)
-
----
-
-## 🏃 Sprint 0: Mejoras Inmediatas (Próximas 2-4 Semanas)
-
-### 1. Autenticación y Seguridad
-
-**Estado**: ⚠️ Crítico (falta implementación)
-
-**Tareas**:
-
-```
-☐ Implementar JWT authentication
-  └─ Token generation en login
-  └─ Token validation en API routes
-  └─ Token refresh mechanism
-
-☐ Crear página de login
-  └─ Form con email/password
-  └─ Validación client-side
-  └─ Manejo de errores
-
-☐ Implementar roles y permisos
-  └─ Admin (acceso total)
-  └─ Gerente (CRUD + reportes)
-  └─ Operario (lectura + actualizaciones limitadas)
-  └─ Middleware de autorización
-
-☐ Proteger rutas API
-  └─ Validar JWT en cada endpoint
-  └─ Verificar permisos por rol
-  └─ Rate limiting
-```
-
-**Tecnología**:
-
-- `next-auth` o JWT manual
-- `bcryptjs` para passwords
-- Middleware Next.js
-
-**Estimación**: 2 semanas  
-**Prioridad**: 🔴 CRÍTICA
-
----
-
-### 2. Validación de Datos Robusta
+### 1. Validación de Datos Robusta
 
 **Estado**: ⚠️ Parcial (básica, no exhaustiva)
 
@@ -94,7 +39,7 @@ El Sistema Industrial está en **Fase 1 (MVP funcional)**. Este documento descri
 
 ---
 
-### 3. Manejo de Errores Uniforme
+### 2. Manejo de Errores Uniforme
 
 **Estado**: ⚠️ Inconsistente
 
@@ -126,7 +71,7 @@ El Sistema Industrial está en **Fase 1 (MVP funcional)**. Este documento descri
 
 ---
 
-### 4. Testing Automatizado (Mínimo)
+### 3. Testing Automatizado (Mínimo)
 
 **Estado**: ❌ No existe
 

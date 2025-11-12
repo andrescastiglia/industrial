@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWebSocketConfig } from "@/lib/websocket-config";
+import { authenticateApiRequest } from "@/lib/api-auth";
 
 // Global WebSocket server instance
 let wsServer: any = null;
 
 export async function GET(request: NextRequest) {
+  // Autenticar usuario
+  const auth = authenticateApiRequest(request);
+  if (auth.error) {
+    return NextResponse.json(auth.error, { status: auth.error.statusCode });
+  }
+
   if (!wsServer && typeof window === "undefined") {
     // Server-side WebSocket implementation for development
     const { WebSocketServer } = await import("ws");

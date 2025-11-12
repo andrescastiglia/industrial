@@ -1,9 +1,32 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
 import { calculateMaterialConsumption } from "@/lib/production-calculations";
+import {
+  authenticateApiRequest,
+  checkApiPermission,
+  logApiOperation,
+} from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "read:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "GET",
+      "/api/ordenes-produccion",
+      user,
+      "Listar todas las órdenes de producción"
+    );
+
     const client = await pool.connect();
 
     const result = await client.query(`
@@ -52,6 +75,17 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "write:all");
+    if (permissionError) return permissionError;
+
     const body = await request.json();
     const {
       orden_venta_id,
@@ -63,6 +97,14 @@ export async function POST(request: NextRequest) {
       fecha_fin_real,
       estado,
     } = body;
+
+    logApiOperation(
+      "POST",
+      "/api/ordenes-produccion",
+      user,
+      "Crear nueva orden de producción",
+      `producto_id: ${producto_id}`
+    );
 
     // Validar campos requeridos
     if (!producto_id || !cantidad_a_producir) {

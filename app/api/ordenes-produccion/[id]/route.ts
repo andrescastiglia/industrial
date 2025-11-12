@@ -1,12 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
 import { calculateMaterialConsumption } from "@/lib/production-calculations";
+import {
+  authenticateApiRequest,
+  checkApiPermission,
+  logApiOperation,
+} from "@/lib/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "read:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "GET",
+      `/api/ordenes-produccion/${params.id}`,
+      user,
+      "Obtener orden de producción"
+    );
+
     const client = await pool.connect();
 
     // Obtener orden de producción con información relacionada
@@ -99,6 +122,17 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "write:all");
+    if (permissionError) return permissionError;
+
     const body = await request.json();
     const {
       orden_venta_id,
@@ -109,6 +143,14 @@ export async function PUT(
       fecha_fin_real,
       estado,
     } = body;
+
+    logApiOperation(
+      "PUT",
+      `/api/ordenes-produccion/${params.id}`,
+      user,
+      "Actualizar orden de producción",
+      `estado: ${estado}`
+    );
 
     const client = await pool.connect();
 
@@ -229,6 +271,24 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "delete:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "DELETE",
+      `/api/ordenes-produccion/${params.id}`,
+      user,
+      "Eliminar orden de producción"
+    );
+
     const client = await pool.connect();
 
     try {

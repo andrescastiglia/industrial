@@ -1,9 +1,32 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { pool } from "@/lib/database";
 import { Dashboard } from "@/lib/dashboard";
+import {
+  authenticateApiRequest,
+  checkApiPermission,
+  logApiOperation,
+} from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "read:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "GET",
+      "/api/dashboard",
+      user,
+      "Obtener datos del dashboard"
+    );
+
     const client = await pool.connect();
 
     // Consultas para las estadísticas

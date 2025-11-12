@@ -1,10 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
+import {
+  authenticateApiRequest,
+  checkApiPermission,
+  logApiOperation,
+} from "@/lib/api-auth";
 
 export async function PUT(request: NextRequest) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "write:all");
+    if (permissionError) return permissionError;
+
     const body = await request.json();
     const { materia_prima_id, cantidad } = body;
+
+    logApiOperation(
+      "PUT",
+      "/api/inventario/movimientos",
+      user,
+      "Registrar movimiento de inventario",
+      `materia_prima_id: ${materia_prima_id}`
+    );
 
     const client = await pool.connect();
 

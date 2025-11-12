@@ -1,11 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool, Producto } from "@/lib/database";
+import {
+  authenticateApiRequest,
+  checkApiPermission,
+  logApiOperation,
+} from "@/lib/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "read:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "GET",
+      `/api/productos/${params.id}`,
+      user,
+      "Obtener producto"
+    );
+
     const client = await pool.connect();
 
     // Obtener producto con sus componentes (BOM)
@@ -70,6 +93,17 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "write:all");
+    if (permissionError) return permissionError;
+
     const body = await request.json();
     const {
       nombre_modelo,
@@ -80,6 +114,14 @@ export async function PUT(
       tipo_accionamiento,
       componentes = [],
     } = body;
+
+    logApiOperation(
+      "PUT",
+      `/api/productos/${params.id}`,
+      user,
+      "Actualizar producto",
+      nombre_modelo
+    );
 
     const client = await pool.connect();
 
@@ -165,6 +207,23 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "delete:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "DELETE",
+      `/api/productos/${params.id}`,
+      user,
+      "Eliminar producto"
+    );
     const client = await pool.connect();
 
     try {

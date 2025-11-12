@@ -1,11 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
+import {
+  authenticateApiRequest,
+  checkApiPermission,
+  logApiOperation,
+} from "@/lib/api-auth";
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
+
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "delete:all");
+    if (permissionError) return permissionError;
+
+    logApiOperation(
+      "DELETE",
+      `/api/ventas/${params.id}`,
+      user,
+      "Eliminar venta"
+    );
+
     const client = await pool.connect();
 
     const result = await client.query(

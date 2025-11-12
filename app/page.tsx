@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function HomePage() {
-  const authenticated = await isAuthenticated();
+  // Check if user is authenticated via middleware header
+  const headersList = headers();
+  const userId = headersList.get("x-user-id");
 
-  if (authenticated) {
+  if (userId) {
     redirect("/dashboard");
   } else {
     redirect("/login");
