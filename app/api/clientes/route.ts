@@ -5,6 +5,12 @@ import {
   checkApiPermission,
   logApiOperation,
 } from "@/lib/api-auth";
+import { validateRequest } from "@/lib/api-validation";
+import {
+  createClienteSchema,
+  filterClienteSchema,
+} from "@/lib/validations/clientes";
+import { validateClienteEmailUnique } from "@/lib/validation-helpers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,14 +25,54 @@ export async function GET(request: NextRequest) {
     const permissionError = checkApiPermission(user, "read:all");
     if (permissionError) return permissionError;
 
-    logApiOperation("GET", "/api/clientes", user, "Listar todos los clientes");
+    // Validar parámetros de consulta
+    const validation = await validateRequest(request, {
+      querySchema: filterClienteSchema,
+    });
+
+    if (!validation.success) {
+      return validation.response!;
+    }
+
+    const filters = validation.data?.query;
+
+    logApiOperation(
+      "GET",
+      "/api/clientes",
+      user,
+      "Listar todos los clientes",
+      JSON.stringify(filters)
+    );
 
     const client = await pool.connect();
 
-    const result = await client.query(`
-      SELECT cliente_id, nombre, contacto, direccion, telefono, email FROM Clientes
-      ORDER BY nombre
-    `);
+    // Build dynamic query based on filters
+    let query =
+      "SELECT cliente_id, nombre, contacto, direccion, telefono, email FROM Clientes WHERE 1=1";
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+
+    if (filters?.nombre) {
+      query += ` AND nombre ILIKE $${paramIndex}`;
+      queryParams.push(`%${filters.nombre}%`);
+      paramIndex++;
+    }
+
+    if (filters?.email) {
+      query += ` AND email ILIKE $${paramIndex}`;
+      queryParams.push(`%${filters.email}%`);
+      paramIndex++;
+    }
+
+    if (filters?.search) {
+      query += ` AND (nombre ILIKE $${paramIndex} OR email ILIKE $${paramIndex} OR contacto ILIKE $${paramIndex})`;
+      queryParams.push(`%${filters.search}%`);
+      paramIndex++;
+    }
+
+    query += " ORDER BY nombre";
+
+    const result = await client.query(query, queryParams);
 
     client.release();
 
@@ -53,15 +99,37 @@ export async function POST(request: NextRequest) {
     const permissionError = checkApiPermission(user, "write:all");
     if (permissionError) return permissionError;
 
-    const body = await request.json();
-    const { nombre, contacto, direccion, telefono, email } = body;
+    // Validar y sanitizar body
+    const validation = await validateRequest(request, {
+      bodySchema: createClienteSchema,
+      sanitize: true,
+    });
+
+    if (!validation.success) {
+      return validation.response!;
+    }
+
+    const clienteData = validation.data!.body!;
+
+    // Validar unicidad de email
+    const emailCheck = await validateClienteEmailUnique(clienteData.email);
+    if (!emailCheck.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: emailCheck.error,
+          validation_errors: [{ field: "email", message: emailCheck.error! }],
+        },
+        { status: 400 }
+      );
+    }
 
     logApiOperation(
       "POST",
       "/api/clientes",
       user,
       "Crear nuevo cliente",
-      `${nombre}`
+      `${clienteData.nombre}`
     );
 
     const client = await pool.connect();
@@ -72,12 +140,25 @@ export async function POST(request: NextRequest) {
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `,
-      [nombre, contacto, direccion, telefono, email]
+      [
+        clienteData.nombre,
+        clienteData.contacto || null,
+        clienteData.direccion,
+        clienteData.telefono,
+        clienteData.email,
+      ]
     );
 
     client.release();
 
-    return NextResponse.json(result.rows[0], { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: result.rows[0],
+        message: "Cliente creado exitosamente",
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating cliente:", error);
     return NextResponse.json(

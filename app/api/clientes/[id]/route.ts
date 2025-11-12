@@ -5,6 +5,15 @@ import {
   checkApiPermission,
   logApiOperation,
 } from "@/lib/api-auth";
+import { validateRequest } from "@/lib/api-validation";
+import {
+  updateClienteSchema,
+  clienteIdSchema,
+} from "@/lib/validations/clientes";
+import {
+  validateClienteExists,
+  validateClienteEmailUnique,
+} from "@/lib/validation-helpers";
 
 export async function GET(
   request: NextRequest,
@@ -22,12 +31,19 @@ export async function GET(
     const permissionError = checkApiPermission(user, "read:all");
     if (permissionError) return permissionError;
 
-    logApiOperation(
-      "GET",
-      `/api/clientes/${params.id}`,
-      user,
-      "Obtener cliente"
-    );
+    // Validar parámetros de ruta
+    const validation = await validateRequest(request, {
+      paramsSchema: clienteIdSchema,
+      params: { id: params.id },
+    });
+
+    if (!validation.success) {
+      return validation.response!;
+    }
+
+    const { id } = validation.data!.params!;
+
+    logApiOperation("GET", `/api/clientes/${id}`, user, "Obtener cliente");
 
     const client = await pool.connect();
 
@@ -37,7 +53,7 @@ export async function GET(
       WHERE cliente_id = $1
       ORDER BY nombre
     `,
-      [params.id]
+      [id]
     );
 
     client.release();
@@ -75,31 +91,101 @@ export async function PUT(
     const permissionError = checkApiPermission(user, "write:all");
     if (permissionError) return permissionError;
 
-    const body = await request.json();
-    const { nombre, contacto, direccion, telefono, email } = body;
+    // Validar parámetros y body
+    const validation = await validateRequest(request, {
+      bodySchema: updateClienteSchema,
+      paramsSchema: clienteIdSchema,
+      params: { id: params.id },
+      sanitize: true,
+    });
+
+    if (!validation.success) {
+      return validation.response!;
+    }
+
+    const clienteData = validation.data!.body!;
+    const { id } = validation.data!.params!;
+
+    // Verificar que el cliente existe
+    const existsCheck = await validateClienteExists(id);
+    if (!existsCheck.valid) {
+      return NextResponse.json(
+        { success: false, error: existsCheck.error },
+        { status: 404 }
+      );
+    }
+
+    // Validar unicidad de email si se está actualizando
+    if (clienteData.email) {
+      const emailCheck = await validateClienteEmailUnique(
+        clienteData.email,
+        id
+      );
+      if (!emailCheck.valid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: emailCheck.error,
+            validation_errors: [{ field: "email", message: emailCheck.error! }],
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     logApiOperation(
       "PUT",
-      `/api/clientes/${params.id}`,
+      `/api/clientes/${id}`,
       user,
       "Actualizar cliente",
-      nombre
+      clienteData.nombre || ""
     );
 
     const client = await pool.connect();
 
+    // Build dynamic update query
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (clienteData.nombre !== undefined) {
+      updates.push(`nombre = $${paramIndex}`);
+      values.push(clienteData.nombre);
+      paramIndex++;
+    }
+    if (clienteData.contacto !== undefined) {
+      updates.push(`contacto = $${paramIndex}`);
+      values.push(clienteData.contacto || null);
+      paramIndex++;
+    }
+    if (clienteData.direccion !== undefined) {
+      updates.push(`direccion = $${paramIndex}`);
+      values.push(clienteData.direccion);
+      paramIndex++;
+    }
+    if (clienteData.telefono !== undefined) {
+      updates.push(`telefono = $${paramIndex}`);
+      values.push(clienteData.telefono);
+      paramIndex++;
+    }
+    if (clienteData.email !== undefined) {
+      updates.push(`email = $${paramIndex}`);
+      values.push(clienteData.email);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "No hay campos para actualizar" },
+        { status: 400 }
+      );
+    }
+
+    values.push(id);
+
     const result = await client.query(
-      `
-      UPDATE Clientes SET
-        nombre = $1,
-        contacto = $2,
-        direccion = $3,
-        telefono = $4,
-        email = $5
-      WHERE cliente_id = $6
-      RETURNING *
-    `,
-      [nombre, contacto, direccion, telefono, email, params.id]
+      `UPDATE Clientes SET ${updates.join(", ")} WHERE cliente_id = $${paramIndex} RETURNING *`,
+      values
     );
 
     client.release();
