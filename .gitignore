@@ -25,3 +25,5 @@ next-env.d.ts
 /.pnpm-store/
 
 *.sh
+
+/coverage/
