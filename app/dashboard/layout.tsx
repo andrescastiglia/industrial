@@ -1,23 +1,14 @@
 import type React from "react";
-import { redirect } from "next/navigation";
 import { Header } from "@/components/header";
 import { MobileMenu } from "@/components/mobile-menu";
-import { headers } from "next/headers";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // The middleware already protects this route and sets headers
-  // If we reach here, the user is authenticated (middleware redirected if not)
-  const headersList = headers();
-  const userId = headersList.get("x-user-id");
-
-  // This is a safety check - middleware should have already redirected
-  if (!userId) {
-    redirect("/login");
-  }
+  // El middleware ya protege esta ruta y verifica autenticación
+  // Si llegamos aquí, el usuario está autenticado (middleware redirigió si no)
 
   return (
     <div className="flex h-screen bg-gray-100">

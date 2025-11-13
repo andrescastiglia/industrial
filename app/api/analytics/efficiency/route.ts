@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "@/lib/auth";
+import { authenticateApiRequest } from "@/lib/api-auth";
 import { pool } from "@/lib/database";
 import { apiLogger } from "@/lib/logger";
 import { createEfficiencyAnalyzer } from "@/lib/analytics/efficiency-analyzer";
@@ -19,20 +19,15 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verificar autenticación
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-
-    if (!payload) {
+    const authResult = authenticateApiRequest(request);
+    if (authResult.error) {
       return NextResponse.json(
-        { error: "Token inválido o expirado" },
-        { status: 401 }
+        { error: authResult.error.error },
+        { status: authResult.error.statusCode }
       );
     }
+
+    const { user } = authResult;
 
     // Obtener parámetros
     const searchParams = request.nextUrl.searchParams;
@@ -55,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     apiLogger.info("Iniciando análisis de eficiencia", {
-      user: payload.email,
+      user: user.email,
       period: periodParam || "current",
       includeHistory,
     });
@@ -114,7 +109,7 @@ export async function GET(request: NextRequest) {
     };
 
     apiLogger.info("Análisis de eficiencia completado", {
-      user: payload.email,
+      user: user.email,
       durationMs: Date.now() - startTime,
       kpisCount: 4,
       bottlenecksCount: bottlenecks.summary.totalBottlenecks,

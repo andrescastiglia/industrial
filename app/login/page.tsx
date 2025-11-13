@@ -63,21 +63,24 @@ export default function LoginPage() {
         return;
       }
 
-      // Guardar tokens en localStorage Y en cookies
+      // Guardar tokens en localStorage
       localStorage.setItem("token", data.accessToken);
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("refreshToken", data.refreshToken);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Guardar token en cookie para que el middleware pueda leerlo
-      // El servidor ya establece la cookie, pero también lo hacemos en cliente como respaldo
-      const maxAge = 7 * 24 * 60 * 60; // 7 días en segundos
-      document.cookie = `token=${data.accessToken}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      // CRÍTICO: El servidor establece la cookie en Set-Cookie header
+      // Pero para navegaciones client-side (router.push), necesitamos
+      // establecerla también desde el cliente para que esté disponible
+      // inmediatamente en la siguiente petición
 
-      // Pequeña pausa para asegurar que las cookies se guarden
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      document.cookie = `token=${data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
 
-      // Forzar recarga completa para que el middleware vea las cookies
+      // Esperar a que la cookie se establezca
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      // Usar window.location para forzar una navegación completa del servidor
+      // Esto asegura que el middleware vea la cookie
       window.location.href = "/dashboard";
     } catch (err) {
       console.error("Login error:", err);

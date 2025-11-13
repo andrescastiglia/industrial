@@ -129,12 +129,12 @@ export class BottleneckDetector {
           SELECT 
             estado,
             COUNT(*) as orders_count,
-            AVG(EXTRACT(DAY FROM (fecha_finalizacion - fecha_inicio))) as avg_duration
+            AVG(EXTRACT(DAY FROM (fecha_fin_real - fecha_inicio))) as avg_duration
           FROM Ordenes_Produccion
-          WHERE fecha_finalizacion >= $1 
-            AND fecha_finalizacion <= $2
+          WHERE fecha_fin_real >= $1 
+            AND fecha_fin_real <= $2
             AND fecha_inicio IS NOT NULL
-            AND fecha_finalizacion > fecha_inicio
+            AND fecha_fin_real > fecha_inicio
           GROUP BY estado
           HAVING COUNT(*) >= 3
         )
@@ -205,32 +205,29 @@ export class BottleneckDetector {
         WITH product_performance AS (
           SELECT 
             op.producto_id,
-            p.nombre as product_name,
+            p.nombre_modelo as product_name,
             COUNT(*) as total_orders,
             COUNT(*) FILTER (
-              WHERE op.fecha_finalizacion > op.fecha_planificada
+              WHERE op.fecha_fin_real > op.fecha_fin_estimada
             ) as delayed_orders,
             AVG(
               CASE 
-                WHEN op.fecha_finalizacion > op.fecha_planificada 
-                THEN EXTRACT(DAY FROM (op.fecha_finalizacion - op.fecha_planificada))
+                WHEN op.fecha_fin_real > op.fecha_fin_estimada 
+                THEN EXTRACT(DAY FROM (op.fecha_fin_real - op.fecha_fin_estimada))
                 ELSE 0
               END
-            ) as average_delay,
-            COUNT(*) FILTER (
-              WHERE op.cantidad_real < op.cantidad_planificada * 0.95
-            ) as underproduced_orders
+            ) as average_delay
           FROM Ordenes_Produccion op
-          JOIN Productos p ON op.producto_id = p.id
-          WHERE op.fecha_finalizacion >= $1 
-            AND op.fecha_finalizacion <= $2
+          JOIN Productos p ON op.producto_id = p.producto_id
+          WHERE op.fecha_fin_real >= $1 
+            AND op.fecha_fin_real <= $2
             AND op.estado = 'completada'
-          GROUP BY op.producto_id, p.nombre
+          GROUP BY op.producto_id, p.nombre_modelo
           HAVING COUNT(*) >= 2
         )
         SELECT *
         FROM product_performance
-        WHERE delayed_orders > 0 OR underproduced_orders > 0
+        WHERE delayed_orders > 0
         ORDER BY average_delay DESC, delayed_orders DESC
         LIMIT 10
       `;
@@ -240,7 +237,6 @@ export class BottleneckDetector {
       const products: ProblematicProduct[] = result.rows.map((row: any) => {
         const totalOrders = parseInt(row.total_orders);
         const delayedOrders = parseInt(row.delayed_orders);
-        const underproducedOrders = parseInt(row.underproduced_orders);
         const averageDelay = parseFloat(row.average_delay);
         const delayRate = (delayedOrders / totalOrders) * 100;
 
@@ -251,9 +247,6 @@ export class BottleneckDetector {
         }
         if (averageDelay > 5) {
           issues.push("Retrasos promedio significativos");
-        }
-        if (underproducedOrders > 0) {
-          issues.push("Producción por debajo de lo planificado");
         }
         if (totalOrders > 10 && delayRate > 30) {
           issues.push("Volumen alto con problemas de cumplimiento");
@@ -304,18 +297,18 @@ export class BottleneckDetector {
             pr.nombre as supplier_name,
             COUNT(*) as orders_count,
             AVG(
-              EXTRACT(DAY FROM (c.fecha_recepcion - c.fecha_compra))
+              c.fecha_recepcion_real - c.fecha_pedido
             ) as avg_delivery_time,
             COUNT(*) FILTER (
-              WHERE c.fecha_recepcion > c.fecha_entrega_esperada
+              WHERE c.fecha_recepcion_real > c.fecha_recepcion_estimada
             ) as delayed_deliveries
           FROM Compras c
-          JOIN Proveedores pr ON c.proveedor_id = pr.id
-          WHERE c.fecha_compra >= $1 
-            AND c.fecha_compra <= $2
-            AND c.estado IN ('completada', 'recibida')
-            AND c.fecha_recepcion IS NOT NULL
-            AND c.fecha_entrega_esperada IS NOT NULL
+          JOIN Proveedores pr ON c.proveedor_id = pr.proveedor_id
+          WHERE c.fecha_pedido >= $1 
+            AND c.fecha_pedido <= $2
+            AND c.estado IN ('recibida')
+            AND c.fecha_recepcion_real IS NOT NULL
+            AND c.fecha_recepcion_estimada IS NOT NULL
           GROUP BY c.proveedor_id, pr.nombre
           HAVING COUNT(*) >= 2
         )

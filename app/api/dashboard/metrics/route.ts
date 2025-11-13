@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/database";
-import { verifyAccessToken, type JWTPayload } from "@/lib/auth";
+import { authenticateApiRequest } from "@/lib/api-auth";
 import {
   createErrorResponse,
   DatabaseError,
@@ -56,16 +56,12 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verificar autenticación
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader) {
-      throw new AuthenticationError("Token no proporcionado");
+    const authResult = authenticateApiRequest(request);
+    if (authResult.error) {
+      throw new AuthenticationError(authResult.error.error);
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const payload = verifyAccessToken(token);
-    if (!payload) {
-      throw new AuthenticationError("Token inválido o expirado");
-    }
+    const { user } = authResult;
 
     logger.info("Obteniendo métricas del dashboard", {
       timestamp: new Date().toISOString(),
@@ -86,8 +82,8 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(*) as total
        FROM Ordenes_Produccion
        WHERE estado = 'completada'
-       AND fecha_finalizacion >= $1
-       AND fecha_finalizacion < CURRENT_DATE`,
+       AND fecha_fin_real >= $1
+       AND fecha_fin_real < CURRENT_DATE`,
       [inicioMesActual]
     );
 
@@ -95,8 +91,8 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(*) as total
        FROM Ordenes_Produccion
        WHERE estado = 'completada'
-       AND fecha_finalizacion >= $1
-       AND fecha_finalizacion <= $2`,
+       AND fecha_fin_real >= $1
+       AND fecha_fin_real <= $2`,
       [inicioMesAnterior, finMesAnterior]
     );
 
@@ -109,37 +105,29 @@ export async function GET(request: NextRequest) {
     const inventario = await client.query(
       `SELECT 
         COUNT(*) as total_items,
-        SUM(CASE WHEN stock_actual <= punto_reorden THEN 1 ELSE 0 END) as bajo_stock
+        SUM(CASE WHEN stock_actual <= punto_pedido THEN 1 ELSE 0 END) as bajo_stock
        FROM Materia_Prima`
     );
 
-    const inventarioAnterior = await client.query(
-      `SELECT COUNT(*) as total
-       FROM Materia_Prima
-       WHERE created_at <= $1`,
-      [finMesAnterior]
-    );
-
     const invActual = parseInt(inventario.rows[0]?.total_items || "0");
-    const invAnterior = parseInt(inventarioAnterior.rows[0]?.total || "0");
-    const variacionInventario =
-      invAnterior > 0 ? ((invActual - invAnterior) / invAnterior) * 100 : 0;
     const itemsBajoStock = parseInt(inventario.rows[0]?.bajo_stock || "0");
+    // No hay historial temporal en Materia_Prima, por lo que variación es 0
+    const variacionInventario = 0;
 
     // 3. Métricas de Ventas
     const ventasActual = await client.query(
-      `SELECT COALESCE(SUM(total), 0) as total
-       FROM Ventas
-       WHERE fecha_venta >= $1
-       AND fecha_venta < CURRENT_DATE`,
+      `SELECT COALESCE(SUM(total_venta), 0) as total
+       FROM Ordenes_Venta
+       WHERE fecha_pedido >= $1
+       AND fecha_pedido < CURRENT_DATE`,
       [inicioMesActual]
     );
 
     const ventasAnterior = await client.query(
-      `SELECT COALESCE(SUM(total), 0) as total
-       FROM Ventas
-       WHERE fecha_venta >= $1
-       AND fecha_venta <= $2`,
+      `SELECT COALESCE(SUM(total_venta), 0) as total
+       FROM Ordenes_Venta
+       WHERE fecha_pedido >= $1
+       AND fecha_pedido <= $2`,
       [inicioMesAnterior, finMesAnterior]
     );
 
@@ -150,18 +138,18 @@ export async function GET(request: NextRequest) {
 
     // 4. Métricas de Costos (compras de materia prima)
     const costosActual = await client.query(
-      `SELECT COALESCE(SUM(total), 0) as total
+      `SELECT COALESCE(SUM(total_compra), 0) as total
        FROM Compras
-       WHERE fecha_compra >= $1
-       AND fecha_compra < CURRENT_DATE`,
+       WHERE fecha_pedido >= $1
+       AND fecha_pedido < CURRENT_DATE`,
       [inicioMesActual]
     );
 
     const costosAnterior = await client.query(
-      `SELECT COALESCE(SUM(total), 0) as total
+      `SELECT COALESCE(SUM(total_compra), 0) as total
        FROM Compras
-       WHERE fecha_compra >= $1
-       AND fecha_compra <= $2`,
+       WHERE fecha_pedido >= $1
+       AND fecha_pedido <= $2`,
       [inicioMesAnterior, finMesAnterior]
     );
 
@@ -177,7 +165,7 @@ export async function GET(request: NextRequest) {
         COUNT(CASE WHEN fecha_fin_estimada BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '3 days' 
                    AND estado != 'completada' THEN 1 END) as en_riesgo,
         COUNT(CASE WHEN estado = 'completada' 
-                   AND fecha_finalizacion >= $1 THEN 1 END) as completadas_mes
+                   AND fecha_fin_real >= $1 THEN 1 END) as completadas_mes
        FROM Ordenes_Produccion`,
       [inicioMesActual]
     );
@@ -185,12 +173,12 @@ export async function GET(request: NextRequest) {
     // 6. Producción diaria (últimos 30 días)
     const produccionDiaria = await client.query(
       `SELECT 
-        DATE(fecha_finalizacion) as fecha,
+        DATE(fecha_fin_real) as fecha,
         COUNT(*) as cantidad
        FROM Ordenes_Produccion
        WHERE estado = 'completada'
-       AND fecha_finalizacion >= CURRENT_DATE - INTERVAL '30 days'
-       GROUP BY DATE(fecha_finalizacion)
+       AND fecha_fin_real >= CURRENT_DATE - INTERVAL '30 days'
+       GROUP BY DATE(fecha_fin_real)
        ORDER BY fecha ASC`
     );
 

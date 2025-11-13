@@ -34,9 +34,14 @@ export function authenticateApiRequest(
   request: NextRequest
 ): { user: ApiUserContext; error: null } | { user: null; error: ApiAuthError } {
   try {
-    // Extraer token del header
+    // Extraer token del header Authorization o de la cookie
     const authHeader = request.headers.get("authorization");
-    const token = extractTokenFromHeader(authHeader);
+    let token = extractTokenFromHeader(authHeader);
+
+    // Si no hay token en el header, intentar obtenerlo de la cookie
+    if (!token) {
+      token = request.cookies.get("token")?.value || null;
+    }
 
     if (!token) {
       return {

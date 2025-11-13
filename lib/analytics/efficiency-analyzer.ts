@@ -108,11 +108,11 @@ export class EfficiencyAnalyzer {
       // Obtener unidades planificadas y producidas del periodo actual
       const query = `
         SELECT 
-          COALESCE(SUM(cantidad_planificada), 0) as planned,
-          COALESCE(SUM(cantidad_real), 0) as produced
+          COALESCE(SUM(cantidad_a_producir), 0) as planned,
+          COALESCE(SUM(CASE WHEN estado = 'completada' THEN cantidad_a_producir ELSE 0 END), 0) as produced
         FROM Ordenes_Produccion
-        WHERE fecha_finalizacion >= $1 
-          AND fecha_finalizacion <= $2
+        WHERE fecha_fin_real >= $1 
+          AND fecha_fin_real <= $2
           AND estado IN ('completada', 'en_proceso')
       `;
 
@@ -184,7 +184,6 @@ export class EfficiencyAnalyzer {
       const operariosQuery = `
         SELECT COUNT(*) as count
         FROM Operarios
-        WHERE estado = 'activo'
       `;
       const operariosResult = await client.query(operariosQuery);
       const activeOperarios = parseInt(operariosResult.rows[0].count) || 1;
@@ -196,11 +195,11 @@ export class EfficiencyAnalyzer {
       const usageQuery = `
         SELECT 
           COALESCE(SUM(
-            EXTRACT(EPOCH FROM (fecha_finalizacion - fecha_inicio)) / 3600
+            EXTRACT(EPOCH FROM (fecha_fin_real - fecha_inicio)) / 3600
           ), 0) as used_hours
         FROM Ordenes_Produccion
-        WHERE fecha_finalizacion >= $1 
-          AND fecha_finalizacion <= $2
+        WHERE fecha_fin_real >= $1 
+          AND fecha_fin_real <= $2
           AND estado = 'completada'
           AND fecha_inicio IS NOT NULL
       `;
@@ -270,11 +269,11 @@ export class EfficiencyAnalyzer {
     try {
       // Obtener costos totales (compras de materia prima)
       const costQuery = `
-        SELECT COALESCE(SUM(costo_total), 0) as total_cost
+        SELECT COALESCE(SUM(total_compra), 0) as total_cost
         FROM Compras
-        WHERE fecha_compra >= $1 
-          AND fecha_compra <= $2
-          AND estado IN ('completada', 'recibida')
+        WHERE fecha_pedido >= $1 
+          AND fecha_pedido <= $2
+          AND estado IN ('recibida', 'pendiente')
       `;
 
       const costResult = await client.query(costQuery, [startDate, endDate]);
@@ -282,10 +281,10 @@ export class EfficiencyAnalyzer {
 
       // Obtener unidades producidas
       const unitsQuery = `
-        SELECT COALESCE(SUM(cantidad_real), 0) as units
+        SELECT COALESCE(SUM(cantidad_a_producir), 0) as units
         FROM Ordenes_Produccion
-        WHERE fecha_finalizacion >= $1 
-          AND fecha_finalizacion <= $2
+        WHERE fecha_fin_real >= $1 
+          AND fecha_fin_real <= $2
           AND estado = 'completada'
       `;
 
@@ -361,15 +360,15 @@ export class EfficiencyAnalyzer {
       // Obtener lead times (días entre inicio y fin de orden)
       const query = `
         SELECT 
-          AVG(EXTRACT(DAY FROM (fecha_finalizacion - fecha_inicio))) as avg_days,
-          MIN(EXTRACT(DAY FROM (fecha_finalizacion - fecha_inicio))) as min_days,
-          MAX(EXTRACT(DAY FROM (fecha_finalizacion - fecha_inicio))) as max_days
+          AVG(EXTRACT(DAY FROM (fecha_fin_real - fecha_inicio))) as avg_days,
+          MIN(EXTRACT(DAY FROM (fecha_fin_real - fecha_inicio))) as min_days,
+          MAX(EXTRACT(DAY FROM (fecha_fin_real - fecha_inicio))) as max_days
         FROM Ordenes_Produccion
-        WHERE fecha_finalizacion >= $1 
-          AND fecha_finalizacion <= $2
+        WHERE fecha_fin_real >= $1 
+          AND fecha_fin_real <= $2
           AND estado = 'completada'
           AND fecha_inicio IS NOT NULL
-          AND fecha_finalizacion > fecha_inicio
+          AND fecha_fin_real > fecha_inicio
       `;
 
       const currentResult = await client.query(query, [startDate, endDate]);

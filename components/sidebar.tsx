@@ -15,6 +15,8 @@ import {
   ClipboardList,
   Home,
   Layers,
+  FileText,
+  BarChart3,
 } from "lucide-react";
 
 const navigation = [
@@ -31,6 +33,16 @@ const navigation = [
     name: "Órdenes de Producción",
     href: "/dashboard/ordenes-produccion",
     icon: ClipboardList,
+  },
+  {
+    name: "Reportes",
+    href: "/dashboard/reportes",
+    icon: FileText,
+  },
+  {
+    name: "Análisis de Eficiencia",
+    href: "/dashboard/analisis-eficiencia",
+    icon: BarChart3,
   },
 ];
 

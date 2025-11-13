@@ -471,14 +471,14 @@ export class RecommendationEngine {
     try {
       const lowStockQuery = `
         SELECT 
-          codigo,
+          referencia_proveedor as codigo,
           nombre,
-          cantidad_actual,
-          cantidad_minima,
+          stock_actual as cantidad_actual,
+          punto_pedido as cantidad_minima,
           unidad_medida
         FROM Materia_Prima
-        WHERE cantidad_actual <= cantidad_minima * 1.2
-        ORDER BY (cantidad_actual / NULLIF(cantidad_minima, 0)) ASC
+        WHERE stock_actual <= punto_pedido * 1.2
+        ORDER BY (stock_actual / NULLIF(punto_pedido, 0)) ASC
         LIMIT 10
       `;
 

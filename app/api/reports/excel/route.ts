@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "@/lib/auth";
+import { authenticateApiRequest } from "@/lib/api-auth";
 import { apiLogger } from "@/lib/logger";
 import { pool } from "@/lib/database";
 import { mapDatabaseError } from "@/lib/error-handler";
@@ -22,17 +22,15 @@ export async function GET(request: NextRequest) {
 
   try {
     // Autenticación
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    const authResult = authenticateApiRequest(request);
+    if (authResult.error) {
+      return NextResponse.json(
+        { error: authResult.error.error },
+        { status: authResult.error.statusCode }
+      );
     }
 
-    const token = authHeader.substring(7);
-    const payload = verifyAccessToken(token);
-
-    if (!payload) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
+    const { user } = authResult;
 
     // Parámetros
     const searchParams = request.nextUrl.searchParams;
@@ -62,7 +60,7 @@ export async function GET(request: NextRequest) {
     apiLogger.info("Generando reporte Excel", {
       type,
       period,
-      user: payload.email,
+      user: user.email,
     });
 
     const client = await pool.connect();
@@ -74,17 +72,17 @@ export async function GET(request: NextRequest) {
         case "production": {
           const ordersResult = await client.query(
             `SELECT 
-              op.id,
-              p.nombre as producto,
-              op.cantidad_requerida as cantidad,
+              op.orden_produccion_id as id,
+              p.nombre_modelo as producto,
+              op.cantidad_a_producir as cantidad,
               op.estado,
-              op.fecha_finalizacion as fecha
+              op.fecha_fin_real as fecha
             FROM Ordenes_Produccion op
-            JOIN Productos p ON op.producto_id = p.id
-            WHERE op.fecha_finalizacion >= $1 
-              AND op.fecha_finalizacion <= $2
+            JOIN Productos p ON op.producto_id = p.producto_id
+            WHERE op.fecha_fin_real >= $1 
+              AND op.fecha_fin_real <= $2
               AND op.estado = 'completada'
-            ORDER BY op.fecha_finalizacion DESC`,
+            ORDER BY op.fecha_fin_real DESC`,
             [startDate, endDate]
           );
 
@@ -98,8 +96,8 @@ export async function GET(request: NextRequest) {
           const prevMonthEnd = endOfMonth(subMonths(periodDate, 1));
           const prevOrdersResult = await client.query(
             `SELECT COUNT(*) as count FROM Ordenes_Produccion
-            WHERE fecha_finalizacion >= $1 
-              AND fecha_finalizacion <= $2
+            WHERE fecha_fin_real >= $1 
+              AND fecha_fin_real <= $2
               AND estado = 'completada'`,
             [prevMonthStart, prevMonthEnd]
           );
@@ -133,12 +131,12 @@ export async function GET(request: NextRequest) {
               c.nombre as cliente,
               v.total as monto,
               v.estado,
-              v.fecha_venta as fecha
-            FROM Ventas v
-            JOIN Clientes c ON v.cliente_id = c.id
-            WHERE v.fecha_venta >= $1 
-              AND v.fecha_venta <= $2
-            ORDER BY v.fecha_venta DESC`,
+              v.fecha_pedido as fecha
+            FROM Ordenes_Venta v
+            JOIN Clientes c ON v.cliente_id = c.cliente_id
+            WHERE v.fecha_pedido >= $1 
+              AND v.fecha_pedido <= $2
+            ORDER BY v.fecha_pedido DESC`,
             [startDate, endDate]
           );
 
@@ -152,8 +150,8 @@ export async function GET(request: NextRequest) {
           const prevMonthStart = startOfMonth(subMonths(periodDate, 1));
           const prevMonthEnd = endOfMonth(subMonths(periodDate, 1));
           const prevSalesResult = await client.query(
-            `SELECT COALESCE(SUM(total), 0) as total FROM Ventas
-            WHERE fecha_venta >= $1 AND fecha_venta <= $2`,
+            `SELECT COALESCE(SUM(total_venta), 0) as total FROM Ordenes_Venta
+            WHERE fecha_pedido >= $1 AND fecha_pedido <= $2`,
             [prevMonthStart, prevMonthEnd]
           );
 
@@ -184,20 +182,21 @@ export async function GET(request: NextRequest) {
         case "inventory": {
           const inventoryResult = await client.query(
             `SELECT 
-              codigo,
+              materia_prima_id as id,
+              referencia_proveedor as codigo,
               nombre,
-              cantidad_actual as cantidad,
-              cantidad_minima as minimo,
+              stock_actual as cantidad,
+              punto_pedido as minimo,
               CASE 
-                WHEN cantidad_actual < cantidad_minima THEN 'Bajo Stock'
-                WHEN cantidad_actual < cantidad_minima * 1.5 THEN 'Alerta'
+                WHEN stock_actual < punto_pedido THEN 'Bajo Stock'
+                WHEN stock_actual < punto_pedido * 1.5 THEN 'Alerta'
                 ELSE 'OK'
               END as estado
             FROM Materia_Prima
             ORDER BY 
               CASE 
-                WHEN cantidad_actual < cantidad_minima THEN 1
-                WHEN cantidad_actual < cantidad_minima * 1.5 THEN 2
+                WHEN stock_actual < punto_pedido THEN 1
+                WHEN stock_actual < punto_pedido * 1.5 THEN 2
                 ELSE 3
               END,
               nombre`
@@ -222,16 +221,16 @@ export async function GET(request: NextRequest) {
         case "costs": {
           const purchasesResult = await client.query(
             `SELECT 
-              c.id,
+              c.compra_id as id,
               p.nombre as proveedor,
-              c.total as monto,
+              c.total_compra as monto,
               c.estado,
-              c.fecha_compra as fecha
+              c.fecha_pedido as fecha
             FROM Compras c
-            JOIN Proveedores p ON c.proveedor_id = p.id
-            WHERE c.fecha_compra >= $1 
-              AND c.fecha_compra <= $2
-            ORDER BY c.fecha_compra DESC`,
+            JOIN Proveedores p ON c.proveedor_id = p.proveedor_id
+            WHERE c.fecha_pedido >= $1 
+              AND c.fecha_pedido <= $2
+            ORDER BY c.fecha_pedido DESC`,
             [startDate, endDate]
           );
 
@@ -246,8 +245,8 @@ export async function GET(request: NextRequest) {
           const prevMonthStart = startOfMonth(subMonths(periodDate, 1));
           const prevMonthEnd = endOfMonth(subMonths(periodDate, 1));
           const prevPurchasesResult = await client.query(
-            `SELECT COALESCE(SUM(total), 0) as total FROM Compras
-            WHERE fecha_compra >= $1 AND fecha_compra <= $2`,
+            `SELECT COALESCE(SUM(total_compra), 0) as total FROM Compras
+            WHERE fecha_pedido >= $1 AND fecha_pedido <= $2`,
             [prevMonthStart, prevMonthEnd]
           );
 
@@ -282,13 +281,11 @@ export async function GET(request: NextRequest) {
           );
       }
 
-      client.release();
-
       const duration = Date.now() - startTime;
       apiLogger.info("Reporte Excel generado exitosamente", {
         type,
         duration,
-        user: payload.email,
+        user: user.email,
       });
 
       // Retornar Excel
@@ -301,8 +298,9 @@ export async function GET(request: NextRequest) {
         },
       });
     } catch (error) {
-      client.release();
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error) {
     const duration = Date.now() - startTime;
