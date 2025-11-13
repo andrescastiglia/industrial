@@ -14,6 +14,8 @@ import { createBottleneckDetector } from "@/lib/analytics/bottleneck-detector";
 import { createRecommendationEngine } from "@/lib/analytics/recommendation-engine";
 import { parse, isValid, startOfMonth } from "date-fns";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
 

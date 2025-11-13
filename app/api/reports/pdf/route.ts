@@ -4,10 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+
+
 import { authenticateApiRequest } from "@/lib/api-auth";
+
 import { apiLogger } from "@/lib/logger";
+
 import { pool } from "@/lib/database";
+
 import { mapDatabaseError } from "@/lib/error-handler";
+
 import {
   generateProductionReport,
   generateSalesReport,
@@ -15,7 +22,11 @@ import {
   generateCostsReport,
 } from "@/lib/reports/pdf-generator";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+
 import { es } from "date-fns/locale";
+
+export const dynamic = 'force-dynamic';
+
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();

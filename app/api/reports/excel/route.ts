@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
+
+export const dynamic = "force-dynamic";
 import { apiLogger } from "@/lib/logger";
 import { pool } from "@/lib/database";
 import { mapDatabaseError } from "@/lib/error-handler";

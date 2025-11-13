@@ -9,6 +9,8 @@ import {
 } from "@/lib/auth";
 import { pool } from "@/lib/database";
 
+export const dynamic = "force-dynamic";
+
 // Mock users - en producción esto vendría de la BD
 const DEMO_USERS = [
   {

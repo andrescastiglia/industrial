@@ -4,11 +4,19 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+
+
 import { authenticateApiRequest } from "@/lib/api-auth";
+
 import { apiLogger } from "@/lib/logger";
+
 import { pool } from "@/lib/database";
+
 import { mapDatabaseError } from "@/lib/error-handler";
+
 import { emailService } from "@/lib/reports/email-service";
+
 import {
   generateProductionReport,
   generateSalesReport,
@@ -18,7 +26,11 @@ import {
   generateSalesExcel,
 } from "@/lib/reports/excel-generator";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+
 import { es } from "date-fns/locale";
+
+export const dynamic = 'force-dynamic';
+
 
 interface SendReportRequest {
   type: "production" | "sales" | "executive-summary" | "critical-alert";

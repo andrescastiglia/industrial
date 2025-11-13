@@ -7,6 +7,8 @@ import {
   logApiOperation,
 } from "@/lib/api-auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     // Autenticar usuario

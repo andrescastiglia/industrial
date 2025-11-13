@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/auth/logout
  * Realiza logout del usuario (server-side cleanup si es necesario)

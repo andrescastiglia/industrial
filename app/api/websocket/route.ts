@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getWebSocketConfig } from "@/lib/websocket-config";
 import { authenticateApiRequest } from "@/lib/api-auth";
 
+export const dynamic = "force-dynamic";
+
 // Global WebSocket server instance
 let wsServer: any = null;
 

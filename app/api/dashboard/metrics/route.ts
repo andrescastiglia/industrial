@@ -14,6 +14,8 @@ import {
 } from "@/lib/error-handler";
 import { apiLogger as logger } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 interface DashboardMetrics {
   produccion: {
     total: number;

@@ -1,18 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server";
+
+
+
 import { pool } from "@/lib/database";
+
 import {
   authenticateApiRequest,
   checkApiPermission,
   logApiOperation,
 } from "@/lib/api-auth";
 import { validateRequest } from "@/lib/api-validation";
+
 import {
   createClienteSchema,
   filterClienteSchema,
 } from "@/lib/validations/clientes";
 import { validateClienteEmailUnique } from "@/lib/validation-helpers";
+
 import { handleApiError, mapDatabaseError } from "@/lib/error-handler";
+
 import { apiLogger, startTimer } from "@/lib/logger";
+
+export const dynamic = 'force-dynamic';
+
 
 export async function GET(request: NextRequest) {
   const timer = startTimer("GET /api/clientes", apiLogger);
