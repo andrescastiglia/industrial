@@ -43,9 +43,5 @@ Sentry.init({
   },
 
   // Ignorar errores comunes
-  ignoreErrors: [
-    "Network request failed",
-    "Failed to fetch",
-    "NetworkError",
-  ],
+  ignoreErrors: ["Network request failed", "Failed to fetch", "NetworkError"],
 });

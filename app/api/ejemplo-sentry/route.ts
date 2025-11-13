@@ -1,6 +1,6 @@
 /**
  * Ejemplo de uso de Sentry Logger en API Routes
- * 
+ *
  * Este archivo muestra cómo usar el logger optimizado de Sentry
  * para capturar solo errores críticos en producción.
  */
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Ejemplo: GET /api/ejemplo
- * 
+ *
  * Muestra cómo usar Sentry de forma optimizada:
  * - Solo errores críticos van a Sentry en producción
  * - Debug/Info solo en desarrollo
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   let auth: ReturnType<typeof authenticateApiRequest> | undefined;
-  
+
   try {
     // 1. Autenticar usuario
     auth = authenticateApiRequest(request);
@@ -65,11 +65,7 @@ export async function GET(request: NextRequest) {
     } catch (dbError) {
       // ❌ ERROR CRÍTICO: Capturar error de base de datos
       // Este SÍ se envía a Sentry en producción
-      captureDatabaseError(
-        dbError,
-        "SELECT * FROM tabla WHERE id = $1",
-        [1]
-      );
+      captureDatabaseError(dbError, "SELECT * FROM tabla WHERE id = $1", [1]);
 
       return NextResponse.json(
         { error: "Error al consultar datos" },
@@ -81,15 +77,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     // ❌ ERROR CRÍTICO: Capturar error general de API
     // Este SÍ se envía a Sentry en producción
-    captureApiError(
-      error,
-      "/api/ejemplo",
-      "GET",
-      auth?.user?.userId,
-      {
-        additionalContext: "Error inesperado en endpoint",
-      }
-    );
+    captureApiError(error, "/api/ejemplo", "GET", auth?.user?.userId, {
+      additionalContext: "Error inesperado en endpoint",
+    });
 
     return NextResponse.json(
       { error: "Error interno del servidor" },
@@ -100,12 +90,12 @@ export async function GET(request: NextRequest) {
 
 /**
  * Ejemplo: POST /api/ejemplo
- * 
+ *
  * Muestra manejo de errores de validación (NO van a Sentry)
  */
 export async function POST(request: NextRequest) {
   let auth: ReturnType<typeof authenticateApiRequest> | undefined;
-  
+
   try {
     auth = authenticateApiRequest(request);
     if (auth.error) {
@@ -140,11 +130,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result.rows[0], { status: 201 });
     } catch (dbError) {
       // ❌ ERROR CRÍTICO: fallo en inserción
-      captureDatabaseError(
-        dbError,
-        "INSERT INTO tabla (nombre) VALUES ($1)",
-        [body.nombre]
-      );
+      captureDatabaseError(dbError, "INSERT INTO tabla (nombre) VALUES ($1)", [
+        body.nombre,
+      ]);
 
       return NextResponse.json(
         { error: "Error al crear registro" },
@@ -155,12 +143,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     // ❌ ERROR CRÍTICO
-    captureApiError(
-      error,
-      "/api/ejemplo",
-      "POST",
-      auth?.user?.userId
-    );
+    captureApiError(error, "/api/ejemplo", "POST", auth?.user?.userId);
 
     return NextResponse.json(
       { error: "Error interno del servidor" },
@@ -171,12 +154,12 @@ export async function POST(request: NextRequest) {
 
 /**
  * RESUMEN DE USO:
- * 
+ *
  * ✅ SÍ enviar a Sentry (producción):
  *    - captureApiError() → Errores inesperados en API
  *    - captureDatabaseError() → Errores de base de datos
  *    - Errores no controlados (throw)
- * 
+ *
  * ❌ NO enviar a Sentry:
  *    - Errores de validación (400)
  *    - Errores de autenticación (401)
@@ -184,7 +167,7 @@ export async function POST(request: NextRequest) {
  *    - Errores de "not found" (404)
  *    - logDebug() → Solo consola en desarrollo
  *    - logInfo() → Solo testing
- * 
+ *
  * 📊 Breadcrumbs:
  *    - addBreadcrumb() → Rastro de eventos para contexto
  *    - Se incluyen automáticamente cuando hay error
