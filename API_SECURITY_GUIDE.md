@@ -143,6 +143,10 @@ All endpoints in `/app/api/**` (except `/auth/*`) now require JWT authentication
 - `POST /api/auth/logout`
 - `GET /login`
 
+### Authenticated User Endpoints
+
+- `POST /api/auth/change-password` - Cambiar contraseña del usuario autenticado
+
 ### Admin Only Endpoints
 
 - `POST /api/auth/register` - Crear nuevos usuarios (solo admin)
@@ -428,10 +432,141 @@ Response:
 - [ ] Ejecutar migración de base de datos (`scripts/database-schema.sql`)
 - [ ] Verificar que usuario admin inicial existe
 - [ ] Realizar primer login y crear usuario admin personal
-- [ ] Desactivar o cambiar password del usuario demo `admin@ejemplo.com`
+- [ ] **Cambiar password del usuario demo usando `/api/auth/change-password`**
+- [ ] O alternativamente: Desactivar usuario demo y usar solo el admin personal
 - [ ] Configurar variables de entorno (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `DATABASE_URL`)
 - [ ] Habilitar HTTPS en producción
 - [ ] Implementar rate limiting en endpoints de auth
+
+## Change Password API
+
+### Endpoint
+
+```bash
+POST /api/auth/change-password
+```
+
+### Authentication
+
+✅ **Requiere autenticación JWT** (Bearer token)
+
+### Request Body
+
+```json
+{
+  "currentPassword": "string",
+  "newPassword": "string",
+  "confirmPassword": "string"
+}
+```
+
+### Validaciones
+
+- ✅ Todos los campos son requeridos
+- ✅ La contraseña actual debe ser correcta
+- ✅ La nueva contraseña debe tener mínimo 8 caracteres
+- ✅ `newPassword` y `confirmPassword` deben coincidir
+- ✅ La nueva contraseña debe ser diferente a la actual
+
+### Example Request
+
+```bash
+# Cambiar contraseña del usuario autenticado
+curl -X POST http://localhost:3000/api/auth/change-password \
+  -H "Authorization: Bearer {accessToken}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "currentPassword": "admin123",
+    "newPassword": "newSecurePassword123!",
+    "confirmPassword": "newSecurePassword123!"
+  }'
+```
+
+### Success Response (200)
+
+```json
+{
+  "message": "Contraseña actualizada exitosamente",
+  "success": true
+}
+```
+
+### Error Responses
+
+#### Current Password Incorrect (401)
+
+```json
+{
+  "error": "La contraseña actual es incorrecta"
+}
+```
+
+#### Passwords Don't Match (400)
+
+```json
+{
+  "error": "Las contraseñas nuevas no coinciden"
+}
+```
+
+#### Password Too Short (400)
+
+```json
+{
+  "error": "La nueva contraseña debe tener al menos 8 caracteres"
+}
+```
+
+#### Same Password (400)
+
+```json
+{
+  "error": "La nueva contraseña debe ser diferente a la actual"
+}
+```
+
+### UI Component
+
+Una interfaz de usuario está disponible en:
+
+```
+/dashboard/change-password
+```
+
+**Features:**
+
+- ✅ Formulario con validación client-side
+- ✅ Toggle para mostrar/ocultar contraseñas
+- ✅ Mensajes de error claros
+- ✅ Consejos de seguridad
+- ✅ Confirmación visual de éxito
+
+### Using in Client Components
+
+```typescript
+import { useAuth } from "@/hooks/useAuth";
+
+function MyComponent() {
+  const { changePassword } = useAuth();
+
+  const handleChangePassword = async () => {
+    const result = await changePassword(
+      "currentPassword123",
+      "newPassword456",
+      "newPassword456"
+    );
+
+    if (result.success) {
+      console.log("Password changed successfully!");
+    } else {
+      console.error("Error:", result.error);
+    }
+  };
+
+  // ...
+}
+```
+
 - [ ] Configurar backup automático de la base de datos
 - [ ] Monitorear logs de auditoría (`[API_AUDIT]`)
 - [ ] Documentar proceso de recuperación de contraseña (próxima implementación)

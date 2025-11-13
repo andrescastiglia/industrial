@@ -14,6 +14,11 @@ export interface UseAuthReturn {
   isAuthenticated: boolean;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -90,12 +95,61 @@ export function useAuth(): UseAuthReturn {
     }
   };
 
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        return {
+          success: false,
+          error: "No estás autenticado. Por favor inicia sesión.",
+        };
+      }
+
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || "Error al cambiar la contraseña",
+        };
+      }
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error("Error changing password:", error);
+      return {
+        success: false,
+        error: "Error de conexión. Por favor intenta de nuevo.",
+      };
+    }
+  };
+
   return {
     user,
     loading,
     isAuthenticated: !!user,
     logout,
     refreshToken,
+    changePassword,
   };
 }
 
