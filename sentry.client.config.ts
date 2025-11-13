@@ -16,15 +16,18 @@ Sentry.init({
   // Release tracking - útil para sourcemaps y rollback
   release: process.env.NEXT_PUBLIC_APP_VERSION || "unknown",
 
-  // Tasa de muestreo de errores (100% = todos los errores)
-  tracesSampleRate: 1.0,
+  // Tasa de muestreo de errores
+  // Producción: 100% de errores, 0% de traces normales
+  // Desarrollo/Testing: 0% (no enviar a Sentry)
+  tracesSampleRate: process.env.NODE_ENV === "production" ? 0 : 0,
 
   // Tasa de muestreo de transacciones de performance
-  // En producción, considera reducir a 0.1 (10%) para reducir costos
-  replaysSessionSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+  // Solo en desarrollo local para debugging
+  replaysSessionSampleRate: process.env.NODE_ENV === "development" ? 0.1 : 0,
 
   // Tasa de muestreo cuando ocurre un error (sesiones con errores)
-  replaysOnErrorSampleRate: 1.0,
+  // Solo en producción y solo cuando hay errores
+  replaysOnErrorSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0,
 
   // Habilitar replay de sesiones para debugging visual
   integrations: [
@@ -79,12 +82,18 @@ Sentry.init({
 
   // Configuración de eventos antes de enviar
   beforeSend(event, hint) {
-    // En desarrollo, solo log a consola
-    if (process.env.NODE_ENV === "development") {
-      console.error("Sentry Event:", event);
-      console.error("Original Error:", hint.originalException);
-      // No enviar a Sentry en desarrollo
-      return null;
+    // En desarrollo, testing o local: solo log a consola, no enviar
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[Sentry Debug] Event:", event);
+      console.error("[Sentry Debug] Original Error:", hint.originalException);
+      return null; // No enviar a Sentry
+    }
+
+    // Solo enviar errores (level: error o fatal)
+    // Filtrar warnings, info, debug, log
+    if (event.level && !["error", "fatal"].includes(event.level)) {
+      console.warn("[Sentry] Filtered non-error event:", event.level);
+      return null; // No enviar warnings/info a Sentry
     }
 
     // Filtrar información sensible

@@ -8,13 +8,44 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: "https://780f05a9110ceab70bc24ebf8f34e52e@o4510359007723520.ingest.us.sentry.io/4510359009886208",
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // Entorno
+  environment: process.env.NODE_ENV || "development",
 
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+  // Sin tracing de performance (0%)
+  tracesSampleRate: 0,
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  // Deshabilitar logs automáticos
+  enableLogs: false,
+
+  // NO enviar información personal
+  sendDefaultPii: false,
+
+  // Filtrar eventos antes de enviar
+  beforeSend(event, hint) {
+    // En desarrollo/testing: no enviar nada
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[Sentry Edge Debug]:", hint.originalException || event);
+      return null;
+    }
+
+    // Solo errores críticos (error o fatal)
+    if (event.level && !["error", "fatal"].includes(event.level)) {
+      return null;
+    }
+
+    // Filtrar información sensible
+    if (event.request) {
+      delete event.request.headers;
+      delete event.request.cookies;
+    }
+
+    return event;
+  },
+
+  // Ignorar errores comunes
+  ignoreErrors: [
+    "Network request failed",
+    "Failed to fetch",
+    "NetworkError",
+  ],
 });
