@@ -207,11 +207,21 @@ INSERT INTO Tipo_Componente (nombre_tipo) VALUES
 ON CONFLICT (nombre_tipo) DO NOTHING;
 
 -- Insertar usuario administrador inicial
--- Password: peperino (bcrypt hash con 10 salt rounds)
--- IMPORTANTE: Cambiar este password después del primer login en producción
+-- IMPORTANTE: Este usuario es para PRODUCCIÓN con password seguro
+-- Password: peperino (bcrypt hash con 10 salt rounds: $2b$10$8TlEEqJitppcRc8dQES17eOmt4sZ2Rr89FGbV0xeXNCa1vWDVFZw6)
+--
+-- Para DESARROLLO LOCAL, puedes usar este hash de admin123:
+-- Password: admin123 (bcrypt hash: $2b$10$fPJwTadoSPUICz0q3SDkeuYumaOPim3FPEGd5TkpGac.WJR7jgVoS)
+--
+-- Cambiar el hash según el entorno:
 INSERT INTO users (email, password_hash, role, nombre, apellido) VALUES 
 ('admin@ejemplo.com', '$2b$10$8TlEEqJitppcRc8dQES17eOmt4sZ2Rr89FGbV0xeXNCa1vWDVFZw6', 'admin', 'Admin', 'Sistema')
 ON CONFLICT (email) DO NOTHING;
+
+-- Para desarrollo local, ejecuta esta línea en su lugar:
+-- INSERT INTO users (email, password_hash, role, nombre, apellido) VALUES 
+-- ('admin@ejemplo.com', '$2b$10$fPJwTadoSPUICz0q3SDkeuYumaOPim3FPEGd5TkpGac.WJR7jgVoS', 'admin', 'Admin', 'Sistema')
+-- ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 -- Nota: Para generar un nuevo hash de password en Node.js:
 -- const bcrypt = require('bcryptjs');

@@ -23,7 +23,8 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "create-user": "node scripts/create-user.js",
-    "db:migrate": "psql $DATABASE_URL -f scripts/database-schema.sql"
+    "db:migrate": "psql $DATABASE_URL -f scripts/database-schema.sql",
+    "db:dev-admin": "psql $DATABASE_URL -f scripts/create-dev-admin.sql"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

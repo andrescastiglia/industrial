@@ -26,9 +26,17 @@ All API routes in the Industrial Management System are now protected with JWT (J
    - `verifyAccessToken()`: Validates and decodes access tokens
    - Password hashing with bcryptjs (10 salt rounds)
 
-## Demo Credentials (Development Only)
+## Demo Credentials
 
-**Production User:**
+### Development/Testing Environment
+
+```
+EMAIL: admin@ejemplo.com
+PASSWORD: admin123
+ROLE: admin (Full system access)
+```
+
+### Production Environment
 
 ```
 EMAIL: admin@ejemplo.com
@@ -36,7 +44,10 @@ PASSWORD: peperino
 ROLE: admin (Full system access)
 ```
 
-⚠️ **IMPORTANTE**: Después del primer login en producción, debe cambiar este password inmediatamente usando el endpoint `/api/auth/change-password` o creando un nuevo usuario admin y desactivando este.
+⚠️ **IMPORTANTE**: 
+- En **desarrollo local**, usar `admin123` para testing
+- En **producción**, el schema SQL crea el usuario con password `peperino`
+- Después del primer login en producción, cambiar este password inmediatamente usando el endpoint `/api/auth/change-password` o creando un nuevo usuario admin y desactivando este.
 
 **Note**: Los usuarios demo anteriores (`gerente@ejemplo.com`, `operario@ejemplo.com`) han sido removidos. Ahora todos los usuarios se gestionan desde la base de datos PostgreSQL.
 
@@ -44,8 +55,19 @@ ROLE: admin (Full system access)
 
 ### 1. Login and Get Token
 
+**Development:**
 ```bash
 curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@ejemplo.com",
+    "password": "admin123"
+  }'
+```
+
+**Production:**
+```bash
+curl -X POST https://tuapp.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@ejemplo.com",
@@ -314,14 +336,14 @@ All API operations are logged in the format:
 ### ✅ Completed Tasks
 
 - ✅ **Task 1: Database schema updates**
-  - Tabla `users` creada en [`scripts/database-schema.sql`](scripts/database-schema.sql )
+  - Tabla `users` creada en [`scripts/database-schema.sql`](scripts/database-schema.sql)
   - Usuario admin inicial con email `admin@ejemplo.com` y password `peperino`
   - Campos: `user_id`, `email`, `password_hash`, `role`, `nombre`, `apellido`, `created_at`, `updated_at`, `last_login`, `is_active`
   - Índices creados para optimizar consultas de autenticación
 
 - ✅ **Task 3: Documentation updates**
   - Documentado proceso de creación de usuarios en producción
-  - Actualizado [`API_SECURITY_GUIDE.md`](API_SECURITY_GUIDE.md ) con credenciales correctas
+  - Actualizado [`API_SECURITY_GUIDE.md`](API_SECURITY_GUIDE.md) con credenciales correctas
   - Agregado endpoint `/api/auth/register` para gestión de usuarios
 
 ### ⏳ Pending Tasks
