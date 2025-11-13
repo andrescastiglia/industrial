@@ -1,3 +1,28 @@
+-- Tabla de Usuarios para autenticación y autorización
+-- Almacena credenciales y roles de usuarios del sistema
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'gerente', 'operario')),
+    nombre VARCHAR(255),
+    apellido VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    last_login TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Índices para mejorar rendimiento de autenticación
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_active ON users(is_active);
+
+COMMENT ON TABLE users IS 'Usuarios del sistema con autenticación JWT';
+COMMENT ON COLUMN users.password_hash IS 'Hash bcrypt del password (salt rounds: 10)';
+COMMENT ON COLUMN users.role IS 'Rol RBAC: admin (acceso completo), gerente (gestión), operario (operaciones)';
+COMMENT ON COLUMN users.is_active IS 'Indica si el usuario está activo o deshabilitado';
+
 -- Tabla para los Tipos de Componente (categorías de Materia Prima)
 -- Permite clasificar la materia prima como perfiles, superficies, juntas, accesorios, etc.
 CREATE TABLE Tipo_Componente (
@@ -180,6 +205,18 @@ INSERT INTO Tipo_Componente (nombre_tipo) VALUES
 ('HERRAMIENTAS_CORTE'),
 ('CONSUMIBLES')
 ON CONFLICT (nombre_tipo) DO NOTHING;
+
+-- Insertar usuario administrador inicial
+-- Password: peperino (bcrypt hash con 10 salt rounds)
+-- IMPORTANTE: Cambiar este password después del primer login en producción
+INSERT INTO users (email, password_hash, role, nombre, apellido) VALUES 
+('admin@ejemplo.com', '$2b$10$8TlEEqJitppcRc8dQES17eOmt4sZ2Rr89FGbV0xeXNCa1vWDVFZw6', 'admin', 'Admin', 'Sistema')
+ON CONFLICT (email) DO NOTHING;
+
+-- Nota: Para generar un nuevo hash de password en Node.js:
+-- const bcrypt = require('bcryptjs');
+-- const hash = await bcrypt.hash('tu_password', 10);
+-- console.log(hash);
 
 -- Insertar datos de ejemplo para clientes
 INSERT INTO Clientes (nombre, contacto, direccion, telefono, email) VALUES 

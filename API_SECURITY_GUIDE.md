@@ -28,21 +28,17 @@ All API routes in the Industrial Management System are now protected with JWT (J
 
 ## Demo Credentials (Development Only)
 
-Three demo users are available for testing:
+**Production User:**
 
 ```
 EMAIL: admin@ejemplo.com
-PASSWORD: admin123
+PASSWORD: peperino
 ROLE: admin (Full system access)
-
-EMAIL: gerente@ejemplo.com
-PASSWORD: gerente123
-ROLE: gerente (Manager access)
-
-EMAIL: operario@ejemplo.com
-PASSWORD: operario123
-ROLE: operario (Worker access)
 ```
+
+⚠️ **IMPORTANTE**: Después del primer login en producción, debe cambiar este password inmediatamente usando el endpoint `/api/auth/change-password` o creando un nuevo usuario admin y desactivando este.
+
+**Note**: Los usuarios demo anteriores (`gerente@ejemplo.com`, `operario@ejemplo.com`) han sido removidos. Ahora todos los usuarios se gestionan desde la base de datos PostgreSQL.
 
 ## Testing the API
 
@@ -53,7 +49,7 @@ curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@ejemplo.com",
-    "password": "admin123"
+    "password": "peperino"
   }'
 ```
 
@@ -152,6 +148,11 @@ All endpoints in `/app/api/**` (except `/auth/*`) now require JWT authentication
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
 - `GET /login`
+
+### Admin Only Endpoints
+
+- `POST /api/auth/register` - Crear nuevos usuarios (solo admin)
+- `GET /api/auth/register` - Listar usuarios (solo admin)
 
 ## Role-Based Permissions
 
@@ -308,35 +309,148 @@ All API operations are logged in the format:
 4. **HTTPS in Production**: Always use HTTPS to prevent token interception
 5. **Environment Variables**: Store `JWT_SECRET` and `JWT_REFRESH_SECRET` in secure environment
 
-## Next Steps (Tasks 8-10)
+## Next Steps
 
-### Task 8: Database Persistence
+### ✅ Completed Tasks
 
-- Replace mock users with database-backed Usuarios table
-- Implement proper user management
+- ✅ **Task 1: Database schema updates**
+  - Tabla `users` creada en [`scripts/database-schema.sql`](scripts/database-schema.sql )
+  - Usuario admin inicial con email `admin@ejemplo.com` y password `peperino`
+  - Campos: `user_id`, `email`, `password_hash`, `role`, `nombre`, `apellido`, `created_at`, `updated_at`, `last_login`, `is_active`
+  - Índices creados para optimizar consultas de autenticación
 
-### Task 9: Rate Limiting
+- ✅ **Task 3: Documentation updates**
+  - Documentado proceso de creación de usuarios en producción
+  - Actualizado [`API_SECURITY_GUIDE.md`](API_SECURITY_GUIDE.md ) con credenciales correctas
+  - Agregado endpoint `/api/auth/register` para gestión de usuarios
 
-- Implement brute-force protection on `/api/auth/login`
-- Limit to 5 failed attempts per 15 minutes per IP
+### ⏳ Pending Tasks
 
-### Task 10: Documentation Updates
+- ⏳ **Task 2: Rate limiting** - Protección contra brute force attacks
+  - Implementar límite de requests por IP/usuario
+  - Recomendado: `@upstash/ratelimit` o `express-rate-limit`
+  - Aplicar especialmente a `/api/auth/login`
 
-- Update user guides with authentication procedures
-- Update technical documentation with security architecture
-- Add troubleshooting section for auth issues
+## Production Setup
 
-## Status: ✅ COMPLETE
+### Step 1: Execute Database Migration
 
-**Sprint 0 Authentication Security**: 7/10 tasks completed (70%)
+```bash
+# Conectar a la base de datos de producción
+psql $DATABASE_URL
 
-- ✅ Task 1: Dependencies installed
-- ✅ Task 2: JWT system created
-- ✅ Task 3: Login page implemented
-- ✅ Task 4: Auth endpoints created
-- ✅ Task 5: Middleware protection implemented
-- ✅ Task 6: Roles and permissions implemented
-- ✅ Task 7: **All API routes protected** (25+ endpoints)
-- ⏳ Task 8: Database schema updates (pending)
-- ⏳ Task 9: Rate limiting (pending)
-- ⏳ Task 10: Documentation updates (pending)
+# Ejecutar el script de schema
+\i scripts/database-schema.sql
+
+# Verificar que la tabla users fue creada
+\dt users
+
+# Verificar que el usuario admin existe
+SELECT user_id, email, role, nombre, is_active FROM users WHERE email = 'admin@ejemplo.com';
+```
+
+### Step 2: First Login and Create Admin User
+
+```bash
+# 1. Login con usuario inicial
+curl -X POST https://tuapp.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@ejemplo.com",
+    "password": "peperino"
+  }'
+
+# 2. Crear tu usuario admin personal (reemplazar {TOKEN} con el accessToken del paso 1)
+curl -X POST https://tuapp.com/api/auth/register \
+  -H "Authorization: Bearer {TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "tu-email@empresa.com",
+    "password": "tu-password-seguro",
+    "role": "admin",
+    "nombre": "Tu Nombre",
+    "apellido": "Tu Apellido"
+  }'
+
+# 3. Desactivar usuario demo (recomendado para seguridad)
+# Conectar a la BD y ejecutar:
+# UPDATE users SET is_active = FALSE WHERE email = 'admin@ejemplo.com';
+```
+
+### Step 3: Create Additional Users
+
+```bash
+# Crear usuario gerente
+curl -X POST https://tuapp.com/api/auth/register \
+  -H "Authorization: Bearer {ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "gerente@empresa.com",
+    "password": "password123",
+    "role": "gerente",
+    "nombre": "Nombre",
+    "apellido": "Apellido"
+  }'
+
+# Crear usuario operario
+curl -X POST https://tuapp.com/api/auth/register \
+  -H "Authorization: Bearer {ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "operario@empresa.com",
+    "password": "password123",
+    "role": "operario",
+    "nombre": "Nombre",
+    "apellido": "Apellido"
+  }'
+```
+
+### Step 4: List All Users (Admin Only)
+
+```bash
+curl -X GET https://tuapp.com/api/auth/register \
+  -H "Authorization: Bearer {ADMIN_TOKEN}"
+```
+
+Response:
+
+```json
+{
+  "users": [
+    {
+      "user_id": 1,
+      "email": "admin@ejemplo.com",
+      "role": "admin",
+      "nombre": "Admin",
+      "apellido": "Sistema",
+      "created_at": "2025-11-13T10:00:00.000Z",
+      "last_login": "2025-11-13T15:30:00.000Z",
+      "is_active": true
+    },
+    {
+      "user_id": 2,
+      "email": "tu-email@empresa.com",
+      "role": "admin",
+      "nombre": "Tu Nombre",
+      "apellido": "Tu Apellido",
+      "created_at": "2025-11-13T15:00:00.000Z",
+      "last_login": null,
+      "is_active": true
+    }
+  ],
+  "total": 2
+}
+```
+
+## Security Checklist for Production
+
+- [ ] Ejecutar migración de base de datos (`scripts/database-schema.sql`)
+- [ ] Verificar que usuario admin inicial existe
+- [ ] Realizar primer login y crear usuario admin personal
+- [ ] Desactivar o cambiar password del usuario demo `admin@ejemplo.com`
+- [ ] Configurar variables de entorno (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `DATABASE_URL`)
+- [ ] Habilitar HTTPS en producción
+- [ ] Implementar rate limiting en endpoints de auth
+- [ ] Configurar backup automático de la base de datos
+- [ ] Monitorear logs de auditoría (`[API_AUDIT]`)
+- [ ] Documentar proceso de recuperación de contraseña (próxima implementación)
