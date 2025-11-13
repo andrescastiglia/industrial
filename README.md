@@ -1,6 +1,6 @@
 # Sistema de Gestión Industrial
 
-[![Build Status](https://github.com/andrescastiglia/industrial/actions/workflows/ci.yml/badge.svg)](https://github.com/andrescastiglia/industrial/actions)
+[![build](https://github.com/andrescastiglia/industrial/actions/workflows/deploy.yml/badge.svg)](https://github.com/andrescastiglia/industrial/actions)
 [![codecov](https://codecov.io/github/andrescastiglia/industrial/graph/badge.svg?token=1PT1YV1W4P)](https://codecov.io/github/andrescastiglia/industrial)
 
 Sistema integral para la gestión de producción de aberturas de aluminio, con módulos de inventario, órdenes de producción, ventas, compras y analítica avanzada.
@@ -111,40 +111,7 @@ Operario: operario@ejemplo.com / operario123
 
 ---
 
-## 📊 Métricas del Proyecto
-
-### Código
-
-```
-Líneas totales:        ~12,000
-Archivos creados:      ~150+
-Componentes React:     ~80
-API Endpoints:         ~30
-Tests:                 112 (100% passing)
-Vulnerabilidades:      0
-```
-
-### Tecnologías
-
-```
-Next.js:       14.2.33
-TypeScript:    5.x
-PostgreSQL:    15
-React:         18
-TailwindCSS:   3.x
-Jest:          29.x
-```
-
----
-
 ## 🎯 Próximas Fases
-
-### Fase 3: Optimización y IA (Q1-Q2 2026)
-
-- Predicción de demanda (ML)
-- Optimización de inventario (EOQ)
-- Detección de anomalías
-- Planificación automática
 
 Ver [ROADMAP_DESARROLLO.md](./ROADMAP_DESARROLLO.md) para detalles completos.
 

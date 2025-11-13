@@ -1,9 +1,5 @@
 # Guía de Usuario - Sistema de Gestión Industrial
 
-**Versión**: 2.0  
-**Última actualización**: 13 noviembre 2025  
-**Para**: Usuarios finales de la planta
-
 ---
 
 ## 🚀 Inicio Rápido
@@ -528,7 +524,3 @@ Puedes buscar por:
 3. Contacta al equipo de TI
 
 ---
-
-**Última actualización**: Noviembre 2025  
-**Versión**: 1.0  
-**Estado**: ✅ Guía Completa para Usuarios Finales

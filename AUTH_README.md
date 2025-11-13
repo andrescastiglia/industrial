@@ -539,7 +539,7 @@ DEBUG=auth:*
 **Login fails**
 
 - Verify credentials: admin@ejemplo.com / admin123
-- Check database has Usuarios table (Task 8 pending)
+- Check database has Usuarios table
 
 ---
 
@@ -583,4 +583,3 @@ The Industrial Management System now features **enterprise-grade authentication*
 **Testing**: ✅ Test script provided
 
 For detailed API security documentation, see: `API_SECURITY_GUIDE.md`
-For implementation report, see: `SPRINT_0_COMPLETION_REPORT.md`

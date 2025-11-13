@@ -1,6 +1,5 @@
 # Guía de Troubleshooting Técnico - Sistema Industrial
 
-**Versión**: 1.0  
 **Para**: Personal técnico / Administradores  
 **Profundidad**: Técnica avanzada
 
@@ -677,7 +676,3 @@ Archivos adjuntos:
 ```
 
 ---
-
-**Última actualización**: Noviembre 2025  
-**Versión**: 1.0  
-**Estado**: ✅ Guía Técnica de Troubleshooting Completa

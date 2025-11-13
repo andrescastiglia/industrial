@@ -281,7 +281,3 @@ if (variacion_porcentaje > 2) {
 - **Optimización**: useCallback para evitar re-renders innecesarios
 
 ---
-
-**Versión**: 1.0.0  
-**Última actualización**: 15 de Enero de 2025  
-**Autor**: Equipo de Desarrollo Industrial

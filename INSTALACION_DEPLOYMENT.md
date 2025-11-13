@@ -1,9 +1,5 @@
 # Guía de Instalación y Deployment - Sistema Industrial
 
-**Versión**: 1.0  
-**Para**: Administradores de sistemas / DevOps / Setup inicial  
-**Profundidad**: Operacional
-
 ---
 
 ## 📋 Tabla de Contenidos
@@ -851,7 +847,3 @@ tar -xzf /home/app/backups/app_20250110_030000.tar.gz -C /home/app/
 ```
 
 ---
-
-**Última actualización**: Noviembre 2025  
-**Versión**: 1.0  
-**Estado**: ✅ Guía Completa de Instalación y Deployment
