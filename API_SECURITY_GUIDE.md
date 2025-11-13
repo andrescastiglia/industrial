@@ -28,25 +28,8 @@ All API routes in the Industrial Management System are now protected with JWT (J
 
 ## Demo Credentials
 
-### Development/Testing Environment
+⚠️ **IMPORTANTE**:
 
-```
-EMAIL: admin@ejemplo.com
-PASSWORD: admin123
-ROLE: admin (Full system access)
-```
-
-### Production Environment
-
-```
-EMAIL: admin@ejemplo.com
-PASSWORD: peperino
-ROLE: admin (Full system access)
-```
-
-⚠️ **IMPORTANTE**: 
-- En **desarrollo local**, usar `admin123` para testing
-- En **producción**, el schema SQL crea el usuario con password `peperino`
 - Después del primer login en producción, cambiar este password inmediatamente usando el endpoint `/api/auth/change-password` o creando un nuevo usuario admin y desactivando este.
 
 **Note**: Los usuarios demo anteriores (`gerente@ejemplo.com`, `operario@ejemplo.com`) han sido removidos. Ahora todos los usuarios se gestionan desde la base de datos PostgreSQL.
@@ -55,23 +38,12 @@ ROLE: admin (Full system access)
 
 ### 1. Login and Get Token
 
-**Development:**
 ```bash
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@ejemplo.com",
     "password": "admin123"
-  }'
-```
-
-**Production:**
-```bash
-curl -X POST https://tuapp.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@ejemplo.com",
-    "password": "peperino"
   }'
 ```
 
@@ -333,22 +305,9 @@ All API operations are logged in the format:
 
 ## Next Steps
 
-### ✅ Completed Tasks
-
-- ✅ **Task 1: Database schema updates**
-  - Tabla `users` creada en [`scripts/database-schema.sql`](scripts/database-schema.sql)
-  - Usuario admin inicial con email `admin@ejemplo.com` y password `peperino`
-  - Campos: `user_id`, `email`, `password_hash`, `role`, `nombre`, `apellido`, `created_at`, `updated_at`, `last_login`, `is_active`
-  - Índices creados para optimizar consultas de autenticación
-
-- ✅ **Task 3: Documentation updates**
-  - Documentado proceso de creación de usuarios en producción
-  - Actualizado [`API_SECURITY_GUIDE.md`](API_SECURITY_GUIDE.md) con credenciales correctas
-  - Agregado endpoint `/api/auth/register` para gestión de usuarios
-
 ### ⏳ Pending Tasks
 
-- ⏳ **Task 2: Rate limiting** - Protección contra brute force attacks
+- ⏳ **Task 1: Rate limiting** - Protección contra brute force attacks
   - Implementar límite de requests por IP/usuario
   - Recomendado: `@upstash/ratelimit` o `express-rate-limit`
   - Aplicar especialmente a `/api/auth/login`
@@ -364,11 +323,11 @@ psql $DATABASE_URL
 # Ejecutar el script de schema
 \i scripts/database-schema.sql
 
-# Verificar que la tabla users fue creada
-\dt users
+# Verificar que la tabla usuarios fue creada
+\dt usuarios
 
 # Verificar que el usuario admin existe
-SELECT user_id, email, role, nombre, is_active FROM users WHERE email = 'admin@ejemplo.com';
+SELECT user_id, email, role, nombre, is_active FROM usuarios WHERE email = 'admin@ejemplo.com';
 ```
 
 ### Step 2: First Login and Create Admin User
@@ -379,7 +338,7 @@ curl -X POST https://tuapp.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@ejemplo.com",
-    "password": "peperino"
+    "password": "admin123"
   }'
 
 # 2. Crear tu usuario admin personal (reemplazar {TOKEN} con el accessToken del paso 1)
@@ -396,7 +355,7 @@ curl -X POST https://tuapp.com/api/auth/register \
 
 # 3. Desactivar usuario demo (recomendado para seguridad)
 # Conectar a la BD y ejecutar:
-# UPDATE users SET is_active = FALSE WHERE email = 'admin@ejemplo.com';
+# UPDATE usuarios SET is_active = FALSE WHERE email = 'admin@ejemplo.com';
 ```
 
 ### Step 3: Create Additional Users

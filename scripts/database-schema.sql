@@ -1,6 +1,6 @@
 -- Tabla de Usuarios para autenticación y autorización
 -- Almacena credenciales y roles de usuarios del sistema
-CREATE TABLE users (
+CREATE TABLE usuarios (
     user_id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -14,11 +14,11 @@ CREATE TABLE users (
 );
 
 -- Índices para mejorar rendimiento de autenticación
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_active ON users(is_active);
+CREATE INDEX idx_usuarios_email ON usuarios(email);
+CREATE INDEX idx_usuarios_role ON usuarios(role);
+CREATE INDEX idx_usuarios_active ON usuarios(is_active);
 
-COMMENT ON TABLE users IS 'Usuarios del sistema con autenticación JWT';
+COMMENT ON TABLE usuarios IS 'Usuarios del sistema con autenticación JWT';
 COMMENT ON COLUMN users.password_hash IS 'Hash bcrypt del password (salt rounds: 10)';
 COMMENT ON COLUMN users.role IS 'Rol RBAC: admin (acceso completo), gerente (gestión), operario (operaciones)';
 COMMENT ON COLUMN users.is_active IS 'Indica si el usuario está activo o deshabilitado';
@@ -208,18 +208,18 @@ ON CONFLICT (nombre_tipo) DO NOTHING;
 
 -- Insertar usuario administrador inicial
 -- IMPORTANTE: Este usuario es para PRODUCCIÓN con password seguro
--- Password: peperino (bcrypt hash con 10 salt rounds: $2b$10$8TlEEqJitppcRc8dQES17eOmt4sZ2Rr89FGbV0xeXNCa1vWDVFZw6)
+-- Password: xxx (bcrypt hash con 10 salt rounds: $2b$10$8TlEEqJitppcRc8dQES17eOmt4sZ2Rr89FGbV0xeXNCa1vWDVFZw6)
 --
 -- Para DESARROLLO LOCAL, puedes usar este hash de admin123:
 -- Password: admin123 (bcrypt hash: $2b$10$fPJwTadoSPUICz0q3SDkeuYumaOPim3FPEGd5TkpGac.WJR7jgVoS)
 --
 -- Cambiar el hash según el entorno:
-INSERT INTO users (email, password_hash, role, nombre, apellido) VALUES 
+INSERT INTO usuarios (email, password_hash, role, nombre, apellido) VALUES 
 ('admin@ejemplo.com', '$2b$10$8TlEEqJitppcRc8dQES17eOmt4sZ2Rr89FGbV0xeXNCa1vWDVFZw6', 'admin', 'Admin', 'Sistema')
 ON CONFLICT (email) DO NOTHING;
 
 -- Para desarrollo local, ejecuta esta línea en su lugar:
--- INSERT INTO users (email, password_hash, role, nombre, apellido) VALUES 
+-- INSERT INTO usuarios (email, password_hash, role, nombre, apellido) VALUES 
 -- ('admin@ejemplo.com', '$2b$10$fPJwTadoSPUICz0q3SDkeuYumaOPim3FPEGd5TkpGac.WJR7jgVoS', 'admin', 'Admin', 'Sistema')
 -- ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 

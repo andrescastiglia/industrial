@@ -8,7 +8,7 @@
 
 -- Actualizar password del admin a admin123 (desarrollo)
 -- Hash bcrypt de 'admin123' con 10 salt rounds
-INSERT INTO users (email, password_hash, role, nombre, apellido) 
+INSERT INTO usuarios (email, password_hash, role, nombre, apellido) 
 VALUES ('admin@ejemplo.com', '$2b$10$fPJwTadoSPUICz0q3SDkeuYumaOPim3FPEGd5TkpGac.WJR7jgVoS', 'admin', 'Admin', 'Sistema')
 ON CONFLICT (email) 
 DO UPDATE SET 
@@ -25,7 +25,7 @@ SELECT
     created_at, 
     updated_at,
     is_active
-FROM users 
+FROM usuarios 
 WHERE email = 'admin@ejemplo.com';
 
 -- Mensaje informativo

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const client = await pool.connect();
     try {
       const result = await client.query(
-        `INSERT INTO users (email, password_hash, role, nombre, apellido)
+        `INSERT INTO usuarios (email, password_hash, role, nombre, apellido)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING user_id, email, role, nombre, apellido, created_at, is_active`,
         [email, password_hash, role, nombre, apellido]
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
     try {
       const result = await client.query(
         `SELECT user_id, email, role, nombre, apellido, created_at, last_login, is_active
-         FROM users
+         FROM usuarios
          ORDER BY created_at DESC`
       );
 

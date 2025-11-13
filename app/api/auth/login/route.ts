@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = await client.query(
         `SELECT user_id, email, password_hash, role, nombre, apellido, is_active
-         FROM users 
+         FROM usuarios 
          WHERE email = $1`,
         [email]
       );
@@ -56,7 +56,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Verificar password
-      const isValidPassword = await verifyPassword(password, user.password_hash);
+      const isValidPassword = await verifyPassword(
+        password,
+        user.password_hash
+      );
       if (!isValidPassword) {
         console.log("[AUTH] Password inválido para:", email);
         return NextResponse.json(
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
 
       // Actualizar last_login
       await client.query(
-        `UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE user_id = $1`,
+        `UPDATE usuarios SET last_login = NOW(), updated_at = NOW() WHERE user_id = $1`,
         [user.user_id]
       );
 

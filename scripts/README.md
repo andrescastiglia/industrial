@@ -10,7 +10,7 @@ Script interactivo para crear usuarios desde la línea de comandos.
 
 - Node.js instalado
 - Variable de entorno `DATABASE_URL` configurada
-- Tabla `users` creada en la base de datos
+- Tabla `usuarios` creada en la base de datos
 
 ### Uso
 
@@ -70,9 +70,15 @@ Solución: Exportar la variable antes de ejecutar el script.
 **Error: Tabla users no existe**
 
 ```
+**Error: Tabla usuarios no existe**
+```
+
 ❌ Error al crear usuario:
-   La tabla "users" no existe. Ejecuta primero:
-   psql $DATABASE_URL -f scripts/database-schema.sql
+La tabla "usuarios" no existe. Ejecuta primero:
+psql $DATABASE_URL -f scripts/database-schema.sql
+
+```
+
 ```
 
 Solución: Ejecutar primero la migración de base de datos.
@@ -90,7 +96,7 @@ Solución: Usar un email diferente o actualizar el usuario existente.
 
 Script SQL para crear todas las tablas del sistema, incluyendo:
 
-- Tabla `users` para autenticación
+- Tabla `usuarios` para autenticación
 - Tablas de negocio (clientes, productos, órdenes, etc.)
 - Índices para optimización
 - Datos iniciales (tipos de componente, usuario admin)
@@ -110,24 +116,11 @@ psql $DATABASE_URL
 
 El script crea automáticamente un usuario administrador:
 
-**Para Producción:**
-```
-Email:    admin@ejemplo.com
-Password: peperino
-Role:     admin
-```
-
-**Para Desarrollo Local:**
 ```
 Email:    admin@ejemplo.com
 Password: admin123
 Role:     admin
 ```
-
-⚠️ **IMPORTANTE**: 
-- El script SQL por defecto usa `peperino` (para producción)
-- Para desarrollo local, comenta la línea de producción y descomenta la línea de desarrollo en el SQL
-- Cambiar el password de producción después del primer login
 
 ## Comandos npm útiles
 
@@ -172,6 +165,7 @@ psql $DATABASE_URL -f scripts/create-dev-admin.sql
 ```
 
 Este script:
+
 - Crea o actualiza el usuario `admin@ejemplo.com`
 - Establece el password a `admin123`
 - Muestra confirmación en consola
