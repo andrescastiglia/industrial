@@ -99,6 +99,25 @@ DATABASE_NAME=industrial
 DATABASE_USER=postgres
 DATABASE_PASSWORD=tu_contraseña_segura
 
+# JWT Secrets (generar con: openssl rand -base64 32)
+JWT_SECRET=tu_jwt_secret_super_seguro_aqui
+JWT_REFRESH_SECRET=otro_secret_diferente_para_refresh
+
+# Next.js
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NODE_ENV=development
+
+# Email (Opcional - para reportes)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=tu_email@gmail.com
+EMAIL_PASSWORD=tu_app_password
+EMAIL_FROM=noreply@tuempresa.com
+
+# Sentry (Opcional - para error tracking)
+NEXT_PUBLIC_SENTRY_DSN=
+SENTRY_AUTH_TOKEN=
+
 # WebSocket
 WEBSOCKET_HOST=localhost
 WEBSOCKET_PORT=3300

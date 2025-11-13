@@ -1,8 +1,8 @@
-# Guía Rápida de Usuario - Sistema de Gestión Industrial
+# Guía de Usuario - Sistema de Gestión Industrial
 
-**Versión**: 1.0  
-**Para**: Usuarios finales de la planta  
-**Tiempo de lectura**: 10 minutos
+**Versión**: 2.0  
+**Última actualización**: 13 noviembre 2025  
+**Para**: Usuarios finales de la planta
 
 ---
 
@@ -10,9 +10,19 @@
 
 ### Acceso al Sistema
 
-1. Abre tu navegador
-2. Ve a: `http://localhost:3000`
-3. Verás el **Dashboard Principal**
+1. Abre tu navegador en: `http://localhost:3000` (o URL de producción)
+2. Ingresa tus credenciales:
+   - **Admin**: admin@ejemplo.com / admin123
+   - **Gerente**: gerente@ejemplo.com / gerente123
+   - **Operario**: operario@ejemplo.com / operario123
+
+3. El sistema te redirigirá automáticamente al **Dashboard Principal**
+
+### Autenticación
+
+- Las sesiones duran **7 días**
+- El sistema guarda tu sesión automáticamente (cookies + localStorage)
+- Para cerrar sesión: Click en tu avatar → "Cerrar Sesión"
 
 ### Estructura del Sistema
 
@@ -21,23 +31,151 @@
 │  PANEL PRINCIPAL (Dashboard)            │
 ├─────────────────────────────────────────┤
 │  Menú Lateral:                          │
-│  ├── Dashboard                          │
-│  ├── Clientes                           │
-│  ├── Productos                          │
-│  ├── Materia Prima                      │
-│  ├── Órdenes de Venta                   │
-│  ├── Órdenes de Producción ⭐ IMPORTANTE
-│  ├── Compras                            │
-│  ├── Operarios                          │
-│  └── Inventario                         │
+│  ├── 📊 Dashboard (KPIs en tiempo real) │
+│  ├── 👥 Clientes                        │
+│  ├── 📦 Productos                       │
+│  ├── 🔩 Materia Prima                   │
+│  ├── 💰 Ventas                          │
+│  ├── 🏭 Órdenes de Producción ⭐        │
+│  ├── 🛒 Compras                         │
+│  ├── 👷 Operarios                       │
+│  ├── 📊 Inventario                      │
+│  ├── 📄 Reportes Exportables ✨         │
+│  └── 🎯 Análisis de Eficiencia ✨ NUEVO │
 └─────────────────────────────────────────┘
 ```
 
 ---
 
-## 📋 Tareas Principales
+## 🎯 Nuevas Funcionalidades (Fase 2)
 
-### Tarea 1: Crear Nueva Orden de Producción
+### Dashboard Ejecutivo
+
+**¿Qué es?**: Vista de KPIs en tiempo real
+
+**Métricas Disponibles**:
+
+- **Producción**: Unidades producidas con variación mensual
+- **Inventario**: Stock actual con tendencia
+- **Ventas**: Ingresos totales vs mes anterior
+- **Costos**: Costos de producción con análisis
+
+**Características**:
+
+- ✅ Auto-actualización cada 5 minutos
+- ✅ Gráfico de producción diaria (últimos 30 días)
+- ✅ Alertas de órdenes vencidas y en riesgo
+- ✅ Click en "Actualizar" para refresh manual
+
+### Reportes Exportables
+
+**Ubicación**: Menu → "Reportes"
+
+**Tipos de Reportes**:
+
+1. **Producción**: Órdenes completadas, eficiencia, productos
+2. **Ventas**: Ingresos, clientes top, productos más vendidos
+3. **Inventario**: Stock actual, bajo stock, movimientos
+4. **Costos**: Análisis de costos por producto y período
+
+**Formatos**:
+
+- 📄 **PDF**: Diseño profesional con gráficos
+- 📊 **Excel**: Tablas con fórmulas y auto-filtros
+- 📧 **Email**: Envío automático con adjuntos
+
+**Cómo usar**:
+
+1. Selecciona el tipo de reporte
+2. Elige el período (mes/año)
+3. Click en "Descargar PDF" o "Descargar Excel"
+4. O usa "Enviar por Email" con destinatarios
+
+### Análisis de Eficiencia ✨ NUEVO
+
+**Ubicación**: Menu → "Análisis de Eficiencia"
+
+**¿Qué hace?**: Analiza la operación y sugiere mejoras automáticamente
+
+**KPIs Calculados**:
+
+1. **Eficiencia de Producción**
+   - ¿Qué mide?: (Producido / Planificado) × 100
+   - Meta: ≥95%
+   - Colores: Verde (excelente), Azul (bueno), Amarillo (advertencia), Rojo (crítico)
+
+2. **Utilización de Capacidad**
+   - ¿Qué mide?: (Horas usadas / Horas disponibles) × 100
+   - Meta: 80-95%
+   - Te dice si estás sub-utilizando o sobre-cargando
+
+3. **Costo por Unidad**
+   - ¿Qué mide?: Costos totales / Unidades producidas
+   - Muestra tendencia vs mes anterior
+   - Alerta si los costos suben
+
+4. **Lead Time**
+   - ¿Qué mide?: Tiempo promedio de producción (días)
+   - Meta: ≤3 días
+   - Identifica demoras
+
+**Detección de Cuellos de Botella**:
+
+- **Etapas lentas**: Fases de producción que tardan >5 días
+- **Productos problemáticos**: Productos con retrasos frecuentes
+- **Proveedores lentos**: Proveedores con confiabilidad <90%
+
+**Recomendaciones Automáticas**:
+El sistema genera sugerencias con prioridad:
+
+- 🔴 **Crítico**: Acción inmediata requerida
+- 🟠 **Alto**: Atención en 1-3 días
+- 🟡 **Medio**: Planificar en 1-2 semanas
+- 🟢 **Bajo**: Mejora continua
+
+**Ejemplo de Recomendaciones**:
+
+```
+🔴 CRÍTICO: Stock Crítico Detectado
+"La materia prima 'Perfil de Aluminio' tiene solo 5 días de stock"
+→ Acción: Realizar pedido urgente de 500 unidades
+→ Beneficio estimado: Evitar paradas de producción
+
+🟠 ALTO: Eficiencia Baja
+"La eficiencia de producción está en 78% (meta: 95%)"
+→ Acción: Revisar procesos, capacitar operarios
+→ Beneficio: +17% en productividad
+```
+
+**Cómo usar**:
+
+1. Abre "Análisis de Eficiencia"
+2. Revisa los 4 KPIs en las tarjetas superiores
+3. Scroll a "Cuellos de Botella" para ver problemas
+4. Lee las "Recomendaciones" y sus acciones sugeridas
+5. Implementa las acciones según prioridad
+
+---
+
+## 📋 Tareas Principales (Actualizadas)
+
+### Tarea 1: Revisar Métricas del Día
+
+**Objetivo**: Ver estado general de la operación
+
+**Pasos**:
+
+1. Ingresa al sistema
+2. Dashboard se carga automáticamente
+3. Revisa los 4 KPIs principales:
+   - Producción (↑ bueno, ↓ revisar)
+   - Inventario (alerta si bajo stock)
+   - Ventas (tendencia de ingresos)
+   - Costos (alerta si aumentan)
+4. Revisa "Órdenes Vencidas" y "En Riesgo"
+5. Si hay alertas rojas, toma acción
+
+### Tarea 2: Crear Nueva Orden de Producción
 
 **Objetivo**: Planificar la fabricación de productos
 

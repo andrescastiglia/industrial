@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
     // Log del login exitoso (para auditoría)
     console.log(`[AUTH] Login exitoso: ${user.email} (${user.role})`);
 
-    return NextResponse.json(
+    // Crear respuesta con cookies
+    const response = NextResponse.json(
       {
         accessToken,
         refreshToken,
@@ -99,6 +100,17 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
+
+    // Establecer cookie con el token (7 días de expiración)
+    response.cookies.set("token", accessToken, {
+      httpOnly: false, // Permitir acceso desde JavaScript para compatibilidad
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60, // 7 días
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("[AUTH] Error en login:", error);
     return NextResponse.json(

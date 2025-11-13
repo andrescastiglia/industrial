@@ -63,13 +63,22 @@ export default function LoginPage() {
         return;
       }
 
-      // Guardar tokens en localStorage
+      // Guardar tokens en localStorage Y en cookies
+      localStorage.setItem("token", data.accessToken);
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("refreshToken", data.refreshToken);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Redirigir al dashboard
-      router.push("/dashboard");
+      // Guardar token en cookie para que el middleware pueda leerlo
+      // El servidor ya establece la cookie, pero también lo hacemos en cliente como respaldo
+      const maxAge = 7 * 24 * 60 * 60; // 7 días en segundos
+      document.cookie = `token=${data.accessToken}; path=/; max-age=${maxAge}; SameSite=Lax`;
+
+      // Pequeña pausa para asegurar que las cookies se guarden
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Forzar recarga completa para que el middleware vea las cookies
+      window.location.href = "/dashboard";
     } catch (err) {
       console.error("Login error:", err);
       setError("Error conectando con el servidor");

@@ -11,7 +11,22 @@ export async function POST(request: NextRequest) {
     // El servidor simplemente confirma la solicitud
     console.log("[AUTH] Logout ejecutado");
 
-    return NextResponse.json({ message: "Logout exitoso" }, { status: 200 });
+    // Crear respuesta
+    const response = NextResponse.json(
+      { message: "Logout exitoso" },
+      { status: 200 }
+    );
+
+    // Limpiar cookie del token
+    response.cookies.set("token", "", {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0, // Expira inmediatamente
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("[AUTH] Error en logout:", error);
     return NextResponse.json(

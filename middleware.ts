@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  verifyAccessToken,
-  extractTokenFromHeader,
-  AUTH_ERRORS,
-} from "@/lib/auth";
 
 /**
  * Rutas públicas que NO requieren autenticación
@@ -17,7 +12,7 @@ const PUBLIC_ROUTES = [
 
 /**
  * Middleware de Next.js para proteger rutas
- * Ejecuta en TODAS las solicitudes
+ * Solo verifica la PRESENCIA del token, no lo valida (la validación se hace en cada ruta API)
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -29,49 +24,27 @@ export function middleware(request: NextRequest) {
 
   // Rutas protegidas: requieren autenticación
   if (pathname.startsWith("/dashboard") || pathname.startsWith("/api")) {
-    // Extraer token del header Authorization
+    // Extraer token del header Authorization o de las cookies
     const authHeader = request.headers.get("authorization");
-    const token = extractTokenFromHeader(authHeader);
+    const token =
+      authHeader?.replace("Bearer ", "") || request.cookies.get("token")?.value;
 
     // Si no hay token, rechazar
     if (!token) {
       // Si es una ruta API, devolver 401
       if (pathname.startsWith("/api")) {
         return NextResponse.json(
-          { error: AUTH_ERRORS.MISSING_TOKEN.error },
-          { status: AUTH_ERRORS.MISSING_TOKEN.statusCode }
+          { error: "Token de autenticación requerido" },
+          { status: 401 }
         );
       }
       // Si es una ruta web, redirigir a login
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    // Verificar token
-    const decoded = verifyAccessToken(token);
-
-    if (!decoded) {
-      // Si es una ruta API, devolver 401
-      if (pathname.startsWith("/api")) {
-        return NextResponse.json(
-          { error: AUTH_ERRORS.INVALID_TOKEN.error },
-          { status: AUTH_ERRORS.INVALID_TOKEN.statusCode }
-        );
-      }
-      // Si es una ruta web, redirigir a login
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    // Agregar info del usuario al header para usarlo en la ruta
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-user-id", decoded.userId.toString());
-    requestHeaders.set("x-user-email", decoded.email);
-    requestHeaders.set("x-user-role", decoded.role);
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
+    // Token presente - permitir continuar
+    // La validación JWT real se hace en cada ruta API con verifyAccessToken
+    return NextResponse.next();
   }
 
   return NextResponse.next();

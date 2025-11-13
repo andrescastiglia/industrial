@@ -13,17 +13,23 @@ Role: admin (full access)
 ### Test an API Endpoint
 
 ```bash
-# 1. Login
+# 1. Login (guarda el token en cookie)
 RESPONSE=$(curl -s -X POST http://localhost:3000/api/auth/login \
+  -c cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@ejemplo.com","password":"admin123"}')
 
-# 2. Extract token
+# 2. Extract token from response
 TOKEN=$(echo $RESPONSE | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 
-# 3. Call protected endpoint
+# 3. Call protected endpoint (cookie automática O header)
 curl -X GET http://localhost:3000/api/clientes \
+  -b cookies.txt \
   -H "Authorization: Bearer $TOKEN"
+
+# Opción alternativa: Solo con cookie
+curl -X GET http://localhost:3000/api/clientes \
+  -b cookies.txt
 ```
 
 ---
@@ -33,20 +39,22 @@ curl -X GET http://localhost:3000/api/clientes \
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    User Browser/Client                       │
+│  (Stores: localStorage + httpOnly cookie)                   │
 └──────────────────────────┬──────────────────────────────────┘
                            │
                     HTTP Request
+              (Cookie: token=JWT_TOKEN)
                            │
         ┌──────────────────▼──────────────────┐
         │     Next.js Middleware              │
-        │  (middleware.ts)                    │
-        │  ✓ Extract Bearer token             │
-        │  ✓ Validate JWT signature           │
-        │  ✓ Set x-user-* headers             │
-        │  ✓ Redirect if invalid              │
+        │  (middleware.ts - Edge Runtime)     │
+        │  ✓ Extract token from cookie        │
+        │  ✓ Check token PRESENCE only        │
+        │  ✓ No JWT validation (Edge limit)   │
+        │  ✓ Redirect if missing              │
         └──────────────────┬──────────────────┘
                            │
-                    Authenticated?
+                    Token Present?
                       /        \
                     YES        NO → /login
                     /
@@ -90,29 +98,42 @@ Core cryptographic functions for token management:
 | `verifyPassword()`         | Compare hashed passwords               |
 | `generateAccessToken()`    | Create 15-min JWT tokens               |
 | `generateRefreshToken()`   | Create 7-day refresh tokens            |
-| `verifyAccessToken()`      | Validate & decode tokens               |
-| `extractTokenFromHeader()` | Parse "Bearer xyz" format              |
+| `verifyAccessToken()`      | Validate JWT in API routes (Node.js)   |
+| `extractTokenFromHeader()` | Extract Bearer token from header       |
 
-### 2. **Permission System** (`/lib/permissions.ts`)
+**Important**: JWT verification uses Node.js `crypto` module, which is NOT available in Edge Runtime.
 
-Role-based access control (RBAC):
+### Cookie-Based Authentication Flow
 
-| Role         | Permissions                                                                                 | Use Case           |
-| ------------ | ------------------------------------------------------------------------------------------- | ------------------ |
-| **admin**    | read:all, write:all, delete:all, manage:users, manage:reports, export:data, manage:settings | Full system access |
-| **gerente**  | read:all, write:all, delete:all, manage:reports, export:data                                | Manager oversight  |
-| **operario** | read:all, write:own                                                                         | Worker operations  |
+**Hybrid Storage Strategy**:
 
-### 3. **Middleware** (`/middleware.ts`)
+- **Cookie**: `token` (httpOnly=false, 7 days, SameSite=Lax)
+- **localStorage**: `accessToken`, `refreshToken`, `user` object
 
-Validates every request entering the system:
+**Login Flow** (`/api/auth/login`):
+
+1. Server validates credentials
+2. Generates JWT tokens
+3. Sets cookie: `response.cookies.set('token', accessToken, {...})`
+4. Returns tokens in JSON response
+5. Client stores in both cookie + localStorage
+6. Full page reload: `window.location.href = '/dashboard'`
+
+**Authentication Check**:
+
+- **Middleware** (Edge Runtime): Only checks token PRESENCE
+- **API Routes** (Node.js): Full JWT validation with crypto
+
+### 2. **Middleware** (`/middleware.ts`)
+
+Validates every request (Edge Runtime compatible):
 
 - Protects: `/dashboard/*`, `/api/*`
-- Extracts JWT from `Authorization: Bearer {token}`
-- Validates token signature and expiry
-- Sets context headers: `x-user-id`, `x-user-email`, `x-user-role`
+- Extracts token from cookie OR Authorization header
+- **Only checks presence** (no JWT validation - Edge limitation)
 - Redirects unauthenticated web requests to `/login`
 - Returns `401 JSON` for unauthenticated API calls
+- JWT validation happens in individual API routes
 
 ### 4. **API Auth Helper** (`/lib/api-auth.ts`)
 

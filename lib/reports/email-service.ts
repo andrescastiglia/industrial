@@ -74,12 +74,12 @@ export class EmailService {
         return;
       }
 
-      this.config = config
-      this.transporter = nodemailer.createTransport(config as any)
+      this.config = config;
+      this.transporter = nodemailer.createTransport(config as any);
 
-      apiLogger.info('Email service initialized successfully')
+      apiLogger.info("Email service initialized successfully");
     } catch (error: any) {
-      apiLogger.error('Failed to initialize email service', { error: error as Error })
+      apiLogger.error("Failed to initialize email service", {
         error: error as Error,
       });
     }
@@ -136,17 +136,17 @@ export class EmailService {
         text: options.text,
         html: options.html,
         attachments,
-      })
+      });
 
-      apiLogger.info('Email sent successfully', {
+      apiLogger.info("Email sent successfully", {
         messageId: info.messageId,
         recipients,
-      })
+      });
 
-      return true
+      return true;
     } catch (error: any) {
-      apiLogger.error('Failed to send email', { error: error as Error })
-      return false
+      apiLogger.error("Failed to send email", { error: error as Error });
+      return false;
     }
   }
 
