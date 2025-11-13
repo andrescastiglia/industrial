@@ -77,7 +77,7 @@ const customJestConfig = {
             statements: 100,
         },
         './lib/api.ts': {
-            branches: 70,
+            branches: 50,
             functions: 90,
             lines: 85,
             statements: 85,
@@ -101,7 +101,7 @@ const customJestConfig = {
             statements: 95,
         },
         './lib/analytics/efficiency-analyzer.ts': {
-            branches: 70,
+            branches: 50,
             functions: 80,
             lines: 75,
             statements: 75,

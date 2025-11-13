@@ -1,52 +1,15 @@
 # Sistema de Gestión Industrial
 
+[![Build Status](https://github.com/andrescastiglia/industrial/actions/workflows/ci.yml/badge.svg)](https://github.com/andrescastiglia/industrial/actions)
+[![codecov](https://codecov.io/github/andrescastiglia/industrial/graph/badge.svg?token=1PT1YV1W4P)](https://codecov.io/github/andrescastiglia/industrial)
+
 Sistema integral para la gestión de producción de aberturas de aluminio, con módulos de inventario, órdenes de producción, ventas, compras y analítica avanzada.
 
-## 🚀 Características Principales
+## 📊 Cobertura de Tests
 
-### ✅ Completado (Fase 1 y Fase 2)
+[![codecov tree](https://codecov.io/github/andrescastiglia/industrial/graphs/tree.svg?token=1PT1YV1W4P)](https://codecov.io/github/andrescastiglia/industrial)
 
-- **Autenticación y Seguridad**
-  - JWT con cookies (7 días de expiración)
-  - RBAC (admin, gerente, operario)
-  - Middleware Edge Runtime compatible
-  - Refresh tokens automáticos
-
-- **Validación de Datos**
-  - Zod schemas (32 esquemas completos)
-  - Sanitización automática
-  - Validación de relaciones (14 funciones)
-  - Prevención SQL injection
-
-- **Manejo de Errores**
-  - 8 clases especializadas de error
-  - 40+ códigos estandarizados
-  - Winston logging estructurado
-  - Sentry integration (producción)
-
-- **Testing Automatizado**
-  - 112 tests (Jest + Testing Library)
-  - CI/CD con GitHub Actions
-  - Coverage reports automáticos
-  - Matrix testing (Node 18.x, 20.x)
-
-- **Dashboard Ejecutivo**
-  - 4 KPIs en tiempo real
-  - Gráficos interactivos (Recharts)
-  - Comparativas mes a mes
-  - Auto-refresh cada 5 minutos
-
-- **Reportes Exportables**
-  - Generación PDF (jsPDF)
-  - Exportación Excel (ExcelJS)
-  - Envío por email (Nodemailer)
-  - 4 tipos de reportes
-
-- **Análisis de Eficiencia** ✨ NUEVO
-  - 4 KPIs de producción
-  - Detección de cuellos de botella
-  - 8 categorías de recomendaciones automáticas
-  - Sistema de priorización inteligente
+---
 
 ## 🏗️ Arquitectura Técnica
 
@@ -83,47 +46,6 @@ Este diseño se ha elaborado siguiendo principios de normalización para asegura
 - Operario: Mapeado a la tabla Operarios.
 
 ![DER](out/der/der.plantuml.svg)
-
----
-
-## 🎯 Estado del Proyecto
-
-### Fase 1: Fundamentos ✅ COMPLETADA (Enero 2025)
-
-- ✅ Autenticación JWT + RBAC
-- ✅ Validación Zod (32 schemas)
-- ✅ Error Handling (8 clases)
-- ✅ Testing (112 tests)
-- **Duración**: 2 meses
-- **LOC**: ~6,600 + 5,500 docs
-
-### Fase 2: Analítica y Reportes ✅ COMPLETADA (Noviembre 2025)
-
-#### 2.1 Dashboard Ejecutivo ✅
-
-- 4 KPIs en tiempo real
-- Auto-refresh cada 5 minutos
-- Gráfico producción diaria
-- **LOC**: 725
-
-#### 2.2 Reportes Exportables ✅
-
-- PDF profesionales (jsPDF)
-- Excel con fórmulas (ExcelJS)
-- Email automático (Nodemailer)
-- 4 tipos de reportes
-- **LOC**: 2,900+
-
-#### 2.3 Análisis de Eficiencia ✅ **RECIÉN COMPLETADO**
-
-- 4 KPIs de producción con estados de salud
-- Detección automática de cuellos de botella
-- 8 categorías de recomendaciones
-- Sistema de priorización inteligente
-- **LOC**: 1,803
-- **Completado**: 13 noviembre 2025
-
-**Total Fase 2**: ~5,428 líneas de código
 
 ---
 
@@ -228,53 +150,9 @@ Ver [ROADMAP_DESARROLLO.md](./ROADMAP_DESARROLLO.md) para detalles completos.
 
 ---
 
-## 📝 Notas de la Implementación Reciente
-
-### Cambios en Autenticación (13 Nov 2025)
-
-**Problema**: Middleware con JWT no funcionaba en Edge Runtime
-
-**Solución implementada**:
-
-- Middleware solo verifica PRESENCIA de token (Edge compatible)
-- API routes validan JWT completo (Node.js Runtime)
-- Sistema híbrido: Cookie + localStorage
-- Full page reload en login para asegurar cookies
-
-**Archivos modificados**:
-
-- `middleware.ts`: Removida validación JWT, solo check de presencia
-- `app/login/page.tsx`: Agregado `window.location.href` + delay de 100ms
-- `app/api/auth/login/route.ts`: Cookie set con SameSite=Lax
-
-### Análisis de Eficiencia (13 Nov 2025)
-
-**Implementado**:
-
-- Sistema completo de KPIs con 4 métricas principales
-- Detección inteligente de 3 tipos de cuellos de botella
-- Motor de recomendaciones con 8 categorías de análisis
-- UI responsive con cards, progress bars y badges
-
-**Archivos creados**:
-
-- `lib/analytics/efficiency-analyzer.ts` (420 líneas)
-- `lib/analytics/bottleneck-detector.ts` (360 líneas)
-- `lib/analytics/recommendation-engine.ts` (450 líneas)
-- `app/api/analytics/efficiency/route.ts` (130 líneas)
-- `app/dashboard/analisis-eficiencia/page.tsx` (443 líneas)
-
----
-
 ## 🤝 Contribución
 
 Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para guías de contribución.
-
----
-
-## 📄 Licencia
-
-Propietario - Todos los derechos reservados
 
 ---
 
