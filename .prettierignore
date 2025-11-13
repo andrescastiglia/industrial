@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Public assets
+public/
+
+# Config files
+pnpm-lock.yaml
+package-lock.json
+
+# Generated files
+*.min.js
+*.min.css

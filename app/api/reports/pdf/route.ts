@@ -5,8 +5,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-
-
 import { authenticateApiRequest } from "@/lib/api-auth";
 
 import { apiLogger } from "@/lib/logger";
@@ -25,8 +23,7 @@ import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 import { es } from "date-fns/locale";
 
-export const dynamic = 'force-dynamic';
-
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();

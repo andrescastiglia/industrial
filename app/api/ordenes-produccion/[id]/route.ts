@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-
-
 import { pool } from "@/lib/database";
 
 import { calculateMaterialConsumption } from "@/lib/production-calculations";
@@ -12,7 +10,7 @@ import {
   logApiOperation,
 } from "@/lib/api-auth";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,

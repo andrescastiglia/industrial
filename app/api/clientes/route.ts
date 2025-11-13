@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-
-
 import { pool } from "@/lib/database";
 
 import {
@@ -21,8 +19,7 @@ import { handleApiError, mapDatabaseError } from "@/lib/error-handler";
 
 import { apiLogger, startTimer } from "@/lib/logger";
 
-export const dynamic = 'force-dynamic';
-
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const timer = startTimer("GET /api/clientes", apiLogger);

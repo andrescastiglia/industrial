@@ -99,7 +99,14 @@ export default function ProductosPage() {
     const color = formData.get("color") as string;
     const tipo_accionamiento = formData.get("tipo_accionamiento") as string;
 
-    if (!nombre_modelo || !descripcion || !ancho || !alto || !color || !tipo_accionamiento) {
+    if (
+      !nombre_modelo ||
+      !descripcion ||
+      !ancho ||
+      !alto ||
+      !color ||
+      !tipo_accionamiento
+    ) {
       console.error("Faltan campos requeridos");
       return;
     }

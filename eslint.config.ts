@@ -1,28 +1,20 @@
-import eslintPlugin from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
 import type { Linter } from "eslint";
 
-const compat = new FlatCompat();
-
-const eslintConfig = [
+const config: Linter.Config[] = [
   {
-    name: "custom/eslint/recommended",
-    files: ["**/*.ts?(x)"],
-    ...eslintPlugin.configs.recommended,
+    ignores: [
+      ".next/**",
+      ".vscode/**",
+      "public/**",
+      "node_modules/**",
+      "out/**",
+      "build/**",
+      "dist/**",
+      "coverage/**",
+      "**/*.config.js",
+      "**/*.config.mjs",
+    ],
   },
 ];
 
-const ignoresConfig = [
-  {
-    name: "custom/eslint/ignores",
-    // the ignores option needs to be in a separate configuration object
-    // replaces the .eslintignore file
-    ignores: [".next/", ".vscode/", "public/"],
-  },
-] as Linter.Config[];
-
-export default [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-  ...eslintConfig,
-  ...ignoresConfig,
-] satisfies Linter.Config[];
+export default config;
