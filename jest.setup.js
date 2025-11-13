@@ -12,6 +12,66 @@ if (typeof TextDecoder === 'undefined') {
     global.TextDecoder = require('util').TextDecoder;
 }
 
+// Polyfill básico para Response.json
+if (typeof Response === 'undefined' || !Response.json) {
+    class MockResponse {
+        constructor(body, init) {
+            this.body = body;
+            this.status = init?.status || 200;
+            this.statusText = init?.statusText || 'OK';
+            this.headers = new Map(Object.entries(init?.headers || {}));
+        }
+
+        async json() {
+            return typeof this.body === 'string' ? JSON.parse(this.body) : this.body;
+        }
+
+        async text() {
+            return typeof this.body === 'string' ? this.body : JSON.stringify(this.body);
+        }
+
+        static json(data, init) {
+            return new MockResponse(data, init);
+        }
+    }
+
+    global.Response = MockResponse;
+}
+
+// Polyfill para Headers
+if (typeof Headers === 'undefined') {
+    global.Headers = Map;
+}
+
+// Polyfill para Request - necesario para Next.js
+if (typeof Request === 'undefined') {
+    class MockRequest {
+        constructor(input, init = {}) {
+            // Store input as private property to avoid read-only conflict
+            Object.defineProperty(this, '_url', {
+                value: typeof input === 'string' ? input : input.url,
+                writable: false,
+                enumerable: false,
+            });
+
+            Object.defineProperty(this, 'url', {
+                get() { return this._url; },
+                enumerable: true,
+            });
+
+            this.method = init.method || 'GET';
+            this.headers = new Map(Object.entries(init.headers || {}));
+            this.body = init.body;
+        }
+
+        async json() {
+            return typeof this.body === 'string' ? JSON.parse(this.body) : this.body;
+        }
+    }
+
+    global.Request = MockRequest;
+}
+
 // Mock de variables de entorno
 process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
 process.env.JWT_SECRET = "test-secret-key-for-testing-only";

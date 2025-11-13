@@ -125,12 +125,8 @@ export function extractTokenFromHeader(
  */
 export function isValidBearerToken(token: string | null): boolean {
   if (!token) return false;
-  try {
-    verifyAccessToken(token);
-    return true;
-  } catch {
-    return false;
-  }
+  const decoded = verifyAccessToken(token);
+  return decoded !== null;
 }
 
 /**
