@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, JWTPayload } from "@/lib/auth";
+import { setUserContext, clearUserContext } from "@/lib/sentry-logger";
 
 export interface User {
   id: number;
@@ -35,7 +36,14 @@ export function useAuth(): UseAuthReturn {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        // Establecer contexto en Sentry (solo producción)
+        setUserContext({
+          id: parsedUser.id,
+          email: parsedUser.email,
+          role: parsedUser.role,
+        });
       } catch (error) {
         console.error("Error parsing stored user:", error);
         localStorage.removeItem("user");
@@ -61,6 +69,8 @@ export function useAuth(): UseAuthReturn {
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       setUser(null);
+      // Limpiar contexto de Sentry
+      clearUserContext();
       // Redirigir a login
       router.push("/login");
     }
