@@ -296,3 +296,28 @@ INSERT INTO Componentes_Producto (producto_id, materia_prima_id, cantidad_necesa
 (4, 11, 2, NULL),          -- Manijas: 2 unidades (1 por hoja)
 (4, 12, 1, NULL)           -- Cerradura multipunto: 1 unidad
 ON CONFLICT (producto_id, materia_prima_id) DO NOTHING;
+
+
+-- Índice para consultas de compras por materia prima
+CREATE INDEX idx_detalle_compra_materia_prima_id 
+ON detalle_compra_materia_prima(materia_prima_id);
+
+-- Índice para trazabilidad de venta a producción
+CREATE INDEX idx_ordenes_produccion_orden_venta 
+ON ordenes_produccion(orden_venta_id);
+
+-- Índice para consultas de etapas por orden de producción
+CREATE INDEX idx_etapas_produccion_orden 
+ON etapas_produccion(orden_produccion_id);
+
+-- Índice para análisis de producción por producto
+CREATE INDEX idx_ordenes_produccion_producto 
+ON ordenes_produccion(producto_id);
+
+-- Índice para consultas de productividad por operario
+CREATE INDEX idx_etapas_produccion_operario 
+ON etapas_produccion(operario_id);
+
+-- Índice para filtrar materias primas por tipo de componente
+CREATE INDEX idx_materia_prima_tipo_componente 
+ON materia_prima(id_tipo_componente);
