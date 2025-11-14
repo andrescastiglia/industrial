@@ -9,32 +9,39 @@ import {
   checkApiPermission,
   logApiOperation,
 } from "@/lib/api-auth";
+import { withTrace, captureApiError } from "@/lib/otel-logger";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  try {
-    // Autenticar usuario
-    const auth = authenticateApiRequest(request);
-    if (auth.error) {
-      return NextResponse.json(auth.error, { status: auth.error.statusCode });
-    }
-    const { user } = auth;
+  return withTrace("GET /api/ordenes-produccion", async (span) => {
+    try {
+      // Autenticar usuario
+      const auth = authenticateApiRequest(request);
 
-    // Verificar permisos
-    const permissionError = checkApiPermission(user, "read:all");
-    if (permissionError) return permissionError;
+      if (auth.user) {
+        span?.setAttribute("user.id", auth.user.userId);
+        span?.setAttribute("user.role", auth.user.role);
+      }
+      if (auth.error) {
+        return NextResponse.json(auth.error, { status: auth.error.statusCode });
+      }
+      const { user } = auth;
 
-    logApiOperation(
-      "GET",
-      "/api/ordenes-produccion",
-      user,
-      "Listar todas las órdenes de producción"
-    );
+      // Verificar permisos
+      const permissionError = checkApiPermission(user, "read:all");
+      if (permissionError) return permissionError;
 
-    const client = await pool.connect();
+      logApiOperation(
+        "GET",
+        "/api/ordenes-produccion",
+        user,
+        "Listar todas las órdenes de producción"
+      );
 
-    const result = await client.query(`
+      const client = await pool.connect();
+
+      const result = await client.query(`
       SELECT 
         op.orden_produccion_id,
         op.orden_venta_id,
@@ -66,16 +73,25 @@ export async function GET(request: NextRequest) {
       ORDER BY op.fecha_creacion DESC
     `);
 
-    client.release();
+      client.release();
 
-    return NextResponse.json(result.rows);
-  } catch (error) {
-    console.error("Error fetching ordenes produccion:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+      span?.setAttribute("db.result_count", result.rows.length);
+
+      return NextResponse.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching ordenes produccion:", error);
+      captureApiError(
+        error,
+        "/api/ordenes-produccion",
+        "GET",
+        auth?.user?.userId
+      );
+      return NextResponse.json(
+        { error: "Error interno del servidor" },
+        { status: 500 }
+      );
+    }
+  });
 }
 
 export async function POST(request: NextRequest) {

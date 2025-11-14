@@ -7,56 +7,77 @@ import {
   checkApiPermission,
   logApiOperation,
 } from "@/lib/api-auth";
+import { withTrace, captureApiError } from "@/lib/otel-logger";
 
 export const dynamic = "force-dynamic";
 
 export async function PUT(request: NextRequest) {
-  try {
-    // Autenticar usuario
-    const auth = authenticateApiRequest(request);
-    if (auth.error) {
-      return NextResponse.json(auth.error, { status: auth.error.statusCode });
-    }
-    const { user } = auth;
+  return withTrace("PUT /api/inventario/movimientos", async (span) => {
+    try {
+      // Autenticar usuario
+      const auth = authenticateApiRequest(request);
 
-    // Verificar permisos
-    const permissionError = checkApiPermission(user, "write:all");
-    if (permissionError) return permissionError;
+      if (auth.user) {
+        span?.setAttribute("user.id", auth.user.userId);
+        span?.setAttribute("user.role", auth.user.role);
+      }
+      if (auth.error) {
+        return NextResponse.json(auth.error, { status: auth.error.statusCode });
+      }
+      const { user } = auth;
 
-    const body = await request.json();
-    const { materia_prima_id, cantidad } = body;
+      // Verificar permisos
+      const permissionError = checkApiPermission(user, "write:all");
+      if (permissionError) return permissionError;
 
-    logApiOperation(
-      "PUT",
-      "/api/inventario/movimientos",
-      user,
-      "Registrar movimiento de inventario",
-      `materia_prima_id: ${materia_prima_id}`
-    );
+      const body = await request.json();
+      const { materia_prima_id, cantidad } = body;
 
-    const client = await pool.connect();
+      logApiOperation(
+        "PUT",
+        "/api/inventario/movimientos",
+        user,
+        "Registrar movimiento de inventario",
+        `materia_prima_id: ${materia_prima_id}`
+      );
 
-    // Actualizar stock según tipo de movimiento
-    const result = await client.query(
-      "UPDATE materia_prima SET stock_actual = $2 WHERE materia_prima_id = $1 RETURNING *",
-      [materia_prima_id, cantidad]
-    );
+      const client = await pool.connect();
 
-    client.release();
+      // Actualizar stock según tipo de movimiento
+      const result = await client.query(
+        "UPDATE materia_prima SET stock_actual = $2 WHERE materia_prima_id = $1 RETURNING *",
+        [materia_prima_id, cantidad]
+      );
 
-    if (result.rows.length === 0) {
+      client.release();
+
+      if (result.rows.length === 0) {
+        span?.setAttribute("inventory.materia_prima_id", materia_prima_id);
+        span?.setAttribute("inventory.found", false);
+        return NextResponse.json(
+          { error: "materia_prima no encontrada" },
+          { status: 404 }
+        );
+      }
+
+      span?.setAttribute("inventory.materia_prima_id", materia_prima_id);
+      span?.setAttribute("inventory.updated_stock", cantidad);
+      span?.setAttribute("inventory.success", true);
+
+      return NextResponse.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error updating materia_prima:", error);
+      captureApiError(
+        error,
+        "/api/inventario/movimientos",
+        "PUT",
+        auth?.user?.userId,
+        { materia_prima_id, cantidad }
+      );
       return NextResponse.json(
-        { error: "materia_prima no encontrada" },
-        { status: 404 }
+        { error: "Error interno del servidor" },
+        { status: 500 }
       );
     }
-
-    return NextResponse.json(result.rows[0]);
-  } catch (error) {
-    console.error("Error updating materia_prima:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+  });
 }

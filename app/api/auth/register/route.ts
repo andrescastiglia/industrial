@@ -6,6 +6,7 @@ import {
   checkApiPermission,
   logApiOperation,
 } from "@/lib/api-auth";
+import { withTrace, captureApiError } from "@/lib/otel-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -14,108 +15,120 @@ export const dynamic = "force-dynamic";
  * Crea un nuevo usuario en el sistema (solo admins)
  */
 export async function POST(request: NextRequest) {
-  try {
-    // Autenticar request
-    const auth = authenticateApiRequest(request);
-    if (auth.error) {
-      return NextResponse.json(auth.error, { status: auth.error.statusCode });
-    }
-
-    // Verificar que sea admin (solo admins pueden crear usuarios)
-    const permissionError = checkApiPermission(auth.user, "manage:users");
-    if (permissionError) return permissionError;
-
-    // Validar body
-    const body = await request.json();
-    const { email, password, role, nombre, apellido } = body;
-
-    if (!email || !password || !role) {
-      return NextResponse.json(
-        { error: "Email, password y role son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Formato de email inválido" },
-        { status: 400 }
-      );
-    }
-
-    // Validar longitud de password
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "El password debe tener al menos 6 caracteres" },
-        { status: 400 }
-      );
-    }
-
-    // Validar rol
-    if (!["admin", "gerente", "operario"].includes(role)) {
-      return NextResponse.json(
-        { error: "Rol inválido. Debe ser: admin, gerente, operario" },
-        { status: 400 }
-      );
-    }
-
-    // Hash password
-    const password_hash = await hashPassword(password);
-
-    // Insertar usuario
-    const client = await pool.connect();
+  return withTrace("POST /api/auth/register", async (span) => {
     try {
-      const result = await client.query(
-        `INSERT INTO usuarios (email, password_hash, role, nombre, apellido)
+      // Autenticar request
+      const auth = authenticateApiRequest(request);
+
+      if (auth.user) {
+        span?.setAttribute("admin.user_id", auth.user.userId);
+        span?.setAttribute("admin.role", auth.user.role);
+      }
+      if (auth.error) {
+        return NextResponse.json(auth.error, { status: auth.error.statusCode });
+      }
+
+      // Verificar que sea admin (solo admins pueden crear usuarios)
+      const permissionError = checkApiPermission(auth.user, "manage:users");
+      if (permissionError) return permissionError;
+
+      // Validar body
+      const body = await request.json();
+      const { email, password, role, nombre, apellido } = body;
+
+      if (!email || !password || !role) {
+        return NextResponse.json(
+          { error: "Email, password y role son requeridos" },
+          { status: 400 }
+        );
+      }
+
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return NextResponse.json(
+          { error: "Formato de email inválido" },
+          { status: 400 }
+        );
+      }
+
+      // Validar longitud de password
+      if (password.length < 6) {
+        return NextResponse.json(
+          { error: "El password debe tener al menos 6 caracteres" },
+          { status: 400 }
+        );
+      }
+
+      // Validar rol
+      if (!["admin", "gerente", "operario"].includes(role)) {
+        return NextResponse.json(
+          { error: "Rol inválido. Debe ser: admin, gerente, operario" },
+          { status: 400 }
+        );
+      }
+
+      // Hash password
+      const password_hash = await hashPassword(password);
+
+      // Insertar usuario
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          `INSERT INTO usuarios (email, password_hash, role, nombre, apellido)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING user_id, email, role, nombre, apellido, created_at, is_active`,
-        [email, password_hash, role, nombre, apellido]
-      );
+          [email, password_hash, role, nombre, apellido]
+        );
 
-      // Log de auditoría
-      logApiOperation(
-        "POST",
-        "/api/auth/register",
-        auth.user,
-        `Usuario creado: ${email} (${role})`
-      );
+        // Log de auditoría
+        logApiOperation(
+          "POST",
+          "/api/auth/register",
+          auth.user,
+          `Usuario creado: ${email} (${role})`
+        );
+
+        span?.setAttribute("user.created_email", email);
+        span?.setAttribute("user.created_role", role);
+        span?.setAttribute("user.created_id", result.rows[0].user_id);
+
+        return NextResponse.json(
+          {
+            message: "Usuario creado exitosamente",
+            user: result.rows[0],
+          },
+          { status: 201 }
+        );
+      } finally {
+        client.release();
+      }
+    } catch (error: any) {
+      console.error("[AUTH] Error creating user:", error);
+      captureApiError(error, "/api/auth/register", "POST", auth?.user?.userId);
+
+      // Error de email duplicado
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "El email ya está registrado" },
+          { status: 409 }
+        );
+      }
+
+      // Error de constraint de rol
+      if (error.code === "23514") {
+        return NextResponse.json(
+          { error: "Rol inválido. Debe ser: admin, gerente, operario" },
+          { status: 400 }
+        );
+      }
 
       return NextResponse.json(
-        {
-          message: "Usuario creado exitosamente",
-          user: result.rows[0],
-        },
-        { status: 201 }
-      );
-    } finally {
-      client.release();
-    }
-  } catch (error: any) {
-    console.error("[AUTH] Error creating user:", error);
-
-    // Error de email duplicado
-    if (error.code === "23505") {
-      return NextResponse.json(
-        { error: "El email ya está registrado" },
-        { status: 409 }
+        { error: "Error al crear usuario" },
+        { status: 500 }
       );
     }
-
-    // Error de constraint de rol
-    if (error.code === "23514") {
-      return NextResponse.json(
-        { error: "Rol inválido. Debe ser: admin, gerente, operario" },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Error al crear usuario" },
-      { status: 500 }
-    );
-  }
+  });
 }
 
 /**

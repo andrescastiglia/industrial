@@ -57,24 +57,50 @@ const sdk = new NodeSDK({
       },
       // HTTP - habilitado (APIs y fetches)
       "@opentelemetry/instrumentation-http": {
-        enabled: !process.env.NODE_ENV || process.env.NODE_ENV !== "test",
+        enabled: true,
         // Filtrar requests innecesarios
         ignoreIncomingRequestHook: (req) => {
           const url = req.url || "";
-          // Ignorar health checks, assets estáticos
+          // Ignorar health checks, assets estáticos, y archivos Next.js
           return (
             url.includes("/_next/") ||
             url.includes("/favicon.ico") ||
-            url.includes("/health")
+            url.includes("/health") ||
+            url.includes("/__nextjs") ||
+            url.includes(".well-known")
           );
         },
+        // Agregar atributos personalizados
+        requestHook: (span, req) => {
+          const url = req.url || "";
+          if (url.includes("/api/")) {
+            span.setAttribute("http.route", url.split("?")[0]);
+          }
+        },
       },
-      // PostgreSQL - habilitado
+      // PostgreSQL - habilitado con hooks
       "@opentelemetry/instrumentation-pg": {
         enabled: true,
+        // Agregar información de la query
+        requestHook: (span, queryConfig) => {
+          if (queryConfig && typeof queryConfig === "object") {
+            // Limitar longitud de queries muy largas
+            const text = (queryConfig as any).text || "";
+            if (text) {
+              span.setAttribute(
+                "db.statement",
+                text.length > 500 ? text.substring(0, 500) + "..." : text
+              );
+            }
+          }
+        },
       },
       // Express - habilitado
       "@opentelemetry/instrumentation-express": {
+        enabled: true,
+      },
+      // Fetch API - habilitado para APIs externas
+      "@opentelemetry/instrumentation-fetch": {
         enabled: true,
       },
     }),
