@@ -38,7 +38,7 @@ export function useAuth(): UseAuthReturn {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        // Establecer contexto en Sentry (solo producción)
+        // Establecer contexto (solo producción)
         setUserContext({
           id: parsedUser.id,
           email: parsedUser.email,
@@ -69,7 +69,7 @@ export function useAuth(): UseAuthReturn {
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       setUser(null);
-      // Limpiar contexto de Sentry
+      // Limpiar contexto
       clearUserContext();
       // Redirigir a login
       router.push("/login");

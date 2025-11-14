@@ -4,7 +4,7 @@
  * Configuración de telemetría para Next.js
  * - Traces automáticos de HTTP, PostgreSQL, Express
  * - Exportación a formato OTLP (compatible con Jaeger, Grafana, DataDog)
- * - Solo errores críticos en producción (similar a configuración anterior de Sentry)
+ * - Solo errores críticos en producción (similar a configuración anterior)
  */
 
 import { NodeSDK } from "@opentelemetry/sdk-node";

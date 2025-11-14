@@ -486,20 +486,6 @@ open http://localhost:16686
 
 ---
 
-## 🆚 Diferencias con Sentry
-
-| Aspecto      | Sentry            | OpenTelemetry                  |
-| ------------ | ----------------- | ------------------------------ |
-| **Tipo**     | SaaS propietario  | Open source, vendor-neutral    |
-| **Enfoque**  | Error tracking    | Observabilidad completa        |
-| **Costo**    | Quota por eventos | Depende del backend elegido    |
-| **Traces**   | Básico            | Avanzado (distributed tracing) |
-| **Backends** | Solo Sentry       | Jaeger, Grafana, DataDog, etc. |
-| **Lock-in**  | Vendor lock-in    | Sin lock-in                    |
-| **Setup**    | Simple            | Moderado                       |
-
----
-
 ## 📚 Recursos
 
 - **Documentación oficial**: https://opentelemetry.io/docs/

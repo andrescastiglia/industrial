@@ -110,10 +110,6 @@ EMAIL_USER=tu_email@gmail.com
 EMAIL_PASSWORD=tu_app_password
 EMAIL_FROM=noreply@tuempresa.com
 
-# Sentry (Opcional - para error tracking)
-NEXT_PUBLIC_SENTRY_DSN=
-SENTRY_AUTH_TOKEN=
-
 # WebSocket
 WEBSOCKET_HOST=localhost
 WEBSOCKET_PORT=3300

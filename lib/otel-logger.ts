@@ -269,6 +269,3 @@ export function addBreadcrumb(
     console.log(`[Breadcrumb] ${category}:`, message, data);
   }
 }
-
-// Backward compatibility: mantener nombres originales
-export { logToOtel as logToSentry };

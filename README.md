@@ -20,7 +20,7 @@ Frontend:  Next.js 14 (App Router) + TypeScript + TailwindCSS + shadcn/ui
 Backend:   Next.js API Routes + PostgreSQL 15
 Auth:      JWT + bcryptjs + Cookie-based (hybrid)
 Testing:   Jest + Testing Library + GitHub Actions
-Logs:      Winston (files) + Sentry (production)
+Logs:      Winston (files) + OTL (production)
 Charts:    Recharts v2
 Reports:   jsPDF + ExcelJS + Nodemailer
 ```
