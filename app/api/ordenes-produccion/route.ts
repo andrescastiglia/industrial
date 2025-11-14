@@ -9,39 +9,33 @@ import {
   checkApiPermission,
   logApiOperation,
 } from "@/lib/api-auth";
-import { withTrace, captureApiError } from "@/lib/otel-logger";
+import { withTrace } from "@/lib/otel-logger";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  return withTrace("GET /api/ordenes-produccion", async (span) => {
-    try {
-      // Autenticar usuario
-      const auth = authenticateApiRequest(request);
+  try {
+    // Autenticar usuario
+    const auth = authenticateApiRequest(request);
+    if (auth.error) {
+      return NextResponse.json(auth.error, { status: auth.error.statusCode });
+    }
+    const { user } = auth;
 
-      if (auth.user) {
-        span?.setAttribute("user.id", auth.user.userId);
-        span?.setAttribute("user.role", auth.user.role);
-      }
-      if (auth.error) {
-        return NextResponse.json(auth.error, { status: auth.error.statusCode });
-      }
-      const { user } = auth;
+    // Verificar permisos
+    const permissionError = checkApiPermission(user, "read:all");
+    if (permissionError) return permissionError;
 
-      // Verificar permisos
-      const permissionError = checkApiPermission(user, "read:all");
-      if (permissionError) return permissionError;
+    logApiOperation(
+      "GET",
+      "/api/ordenes-produccion",
+      user,
+      "Listar todas las órdenes de producción"
+    );
 
-      logApiOperation(
-        "GET",
-        "/api/ordenes-produccion",
-        user,
-        "Listar todas las órdenes de producción"
-      );
+    const client = await pool.connect();
 
-      const client = await pool.connect();
-
-      const result = await client.query(`
+    const result = await client.query(`
       SELECT 
         op.orden_produccion_id,
         op.orden_venta_id,
@@ -73,106 +67,103 @@ export async function GET(request: NextRequest) {
       ORDER BY op.fecha_creacion DESC
     `);
 
-      client.release();
+    client.release();
 
-      span?.setAttribute("db.result_count", result.rows.length);
-
-      return NextResponse.json(result.rows);
-    } catch (error) {
-      console.error("Error fetching ordenes produccion:", error);
-      captureApiError(
-        error,
-        "/api/ordenes-produccion",
-        "GET",
-        auth?.user?.userId
-      );
-      return NextResponse.json(
-        { error: "Error interno del servidor" },
-        { status: 500 }
-      );
-    }
-  });
+    return NextResponse.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching ordenes produccion:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    // Autenticar usuario
-    const auth = authenticateApiRequest(request);
-    if (auth.error) {
-      return NextResponse.json(auth.error, { status: auth.error.statusCode });
-    }
-    const { user } = auth;
-
-    // Verificar permisos
-    const permissionError = checkApiPermission(user, "write:all");
-    if (permissionError) return permissionError;
-
-    const body = await request.json();
-    const {
-      orden_venta_id,
-      producto_id,
-      cantidad_a_producir,
-      fecha_creacion,
-      fecha_inicio,
-      fecha_fin_estimada,
-      fecha_fin_real,
-      estado,
-    } = body;
-
-    logApiOperation(
-      "POST",
-      "/api/ordenes-produccion",
-      user,
-      "Crear nueva orden de producción",
-      `producto_id: ${producto_id}`
-    );
-
-    // Validar campos requeridos
-    if (!producto_id || !cantidad_a_producir) {
-      return NextResponse.json(
-        { error: "producto_id y cantidad_a_producir son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    const client = await pool.connect();
-
+  return withTrace("POST /api/ordenes-produccion", async (span) => {
     try {
-      await client.query("BEGIN");
+      // Autenticar usuario
+      const auth = authenticateApiRequest(request);
 
-      // Insertar orden de producción
-      const ordenResult = await client.query(
-        `
+      if (auth.user) {
+        span?.setAttribute("user.id", auth.user.userId);
+        span?.setAttribute("user.role", auth.user.role);
+      }
+      if (auth.error) {
+        return NextResponse.json(auth.error, { status: auth.error.statusCode });
+      }
+      const { user } = auth;
+
+      // Verificar permisos
+      const permissionError = checkApiPermission(user, "write:all");
+      if (permissionError) return permissionError;
+
+      const body = await request.json();
+      const {
+        orden_venta_id,
+        producto_id,
+        cantidad_a_producir,
+        fecha_creacion,
+        fecha_inicio,
+        fecha_fin_estimada,
+        fecha_fin_real,
+        estado,
+      } = body;
+
+      logApiOperation(
+        "POST",
+        "/api/ordenes-produccion",
+        user,
+        "Crear nueva orden de producción",
+        `producto_id: ${producto_id}`
+      );
+
+      // Validar campos requeridos
+      if (!producto_id || !cantidad_a_producir) {
+        return NextResponse.json(
+          { error: "producto_id y cantidad_a_producir son requeridos" },
+          { status: 400 }
+        );
+      }
+
+      const client = await pool.connect();
+
+      try {
+        await client.query("BEGIN");
+
+        // Insertar orden de producción
+        const ordenResult = await client.query(
+          `
         INSERT INTO Ordenes_Produccion (
           orden_venta_id, producto_id, cantidad_a_producir, fecha_creacion,
           fecha_inicio, fecha_fin_estimada, fecha_fin_real, estado
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `,
-        [
-          orden_venta_id,
+          [
+            orden_venta_id,
+            producto_id,
+            cantidad_a_producir,
+            fecha_creacion,
+            fecha_inicio,
+            fecha_fin_estimada,
+            fecha_fin_real,
+            estado,
+          ]
+        );
+
+        const nuevaOrden = ordenResult.rows[0];
+
+        // Calcular consumos automáticamente
+        const consumosCalculados = await calculateMaterialConsumption(
           producto_id,
-          cantidad_a_producir,
-          fecha_creacion,
-          fecha_inicio,
-          fecha_fin_estimada,
-          fecha_fin_real,
-          estado,
-        ]
-      );
+          cantidad_a_producir
+        );
 
-      const nuevaOrden = ordenResult.rows[0];
-
-      // Calcular consumos automáticamente
-      const consumosCalculados = await calculateMaterialConsumption(
-        producto_id,
-        cantidad_a_producir
-      );
-
-      // Insertar consumos calculados
-      for (const consumo of consumosCalculados) {
-        await client.query(
-          `
+        // Insertar consumos calculados
+        for (const consumo of consumosCalculados) {
+          await client.query(
+            `
           INSERT INTO Consumo_Materia_Prima_Produccion (
             orden_produccion_id, materia_prima_id, cantidad_requerida,
             cantidad_usada, merma_calculada, fecha_registro
@@ -184,38 +175,44 @@ export async function POST(request: NextRequest) {
             merma_calculada = EXCLUDED.merma_calculada,
             fecha_registro = EXCLUDED.fecha_registro
         `,
-          [
-            nuevaOrden.orden_produccion_id,
-            consumo.materia_prima_id,
-            consumo.cantidad_total,
-            0,
-            0,
-            new Date(),
-          ]
+            [
+              nuevaOrden.orden_produccion_id,
+              consumo.materia_prima_id,
+              consumo.cantidad_total,
+              0,
+              0,
+              new Date(),
+            ]
+          );
+        }
+
+        await client.query("COMMIT");
+        client.release();
+
+        span?.setAttribute("orden.created_id", nuevaOrden.orden_produccion_id);
+        span?.setAttribute("orden.producto_id", producto_id);
+        span?.setAttribute("orden.cantidad", cantidad_a_producir);
+        span?.setAttribute("orden.consumos_count", consumosCalculados.length);
+
+        return NextResponse.json(
+          {
+            ...nuevaOrden,
+            consumos: consumosCalculados,
+            mensaje: "Orden creada con consumos calculados automáticamente",
+          },
+          { status: 201 }
         );
+      } catch (error) {
+        await client.query("ROLLBACK");
+        client.release();
+        throw error;
       }
-
-      await client.query("COMMIT");
-      client.release();
-
-      return NextResponse.json(
-        {
-          ...nuevaOrden,
-          consumos: consumosCalculados,
-          mensaje: "Orden creada con consumos calculados automáticamente",
-        },
-        { status: 201 }
-      );
     } catch (error) {
-      await client.query("ROLLBACK");
-      client.release();
-      throw error;
+      console.error("Error creating orden produccion:", error);
+      return NextResponse.json(
+        { error: "Error interno del servidor" },
+        { status: 500 }
+      );
     }
-  } catch (error) {
-    console.error("Error creating orden produccion:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+  });
 }

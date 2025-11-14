@@ -63,6 +63,7 @@ export async function PUT(request: NextRequest) {
       span?.setAttribute("inventory.materia_prima_id", materia_prima_id);
       span?.setAttribute("inventory.updated_stock", cantidad);
       span?.setAttribute("inventory.success", true);
+      span?.setAttribute("db.operation", "UPDATE");
 
       return NextResponse.json(result.rows[0]);
     } catch (error) {

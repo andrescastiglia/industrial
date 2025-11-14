@@ -78,19 +78,58 @@ const sdk = new NodeSDK({
           }
         },
       },
-      // PostgreSQL - habilitado con hooks
+      // PostgreSQL - solo INSERT/UPDATE/DELETE (no SELECT)
       "@opentelemetry/instrumentation-pg": {
         enabled: true,
+        // Filtrar queries de lectura (SELECT)
+        requireParentSpan: false,
+        responseHook: (span, responseInfo) => {
+          // Obtener el statement del span
+          const statement = span.attributes["db.statement"] as string;
+          if (statement) {
+            const upperStatement = statement.trim().toUpperCase();
+            // Si es SELECT, terminar el span inmediatamente sin enviarlo
+            if (upperStatement.startsWith("SELECT")) {
+              span.end();
+              return;
+            }
+          }
+        },
         // Agregar información de la query
         requestHook: (span, queryConfig) => {
           if (queryConfig && typeof queryConfig === "object") {
-            // Limitar longitud de queries muy largas
             const text = (queryConfig as any).text || "";
             if (text) {
+              const upperText = text.trim().toUpperCase();
+
+              // Solo tracear INSERT, UPDATE, DELETE, ALTER, DROP, CREATE
+              if (
+                !upperText.startsWith("INSERT") &&
+                !upperText.startsWith("UPDATE") &&
+                !upperText.startsWith("DELETE") &&
+                !upperText.startsWith("ALTER") &&
+                !upperText.startsWith("DROP") &&
+                !upperText.startsWith("CREATE")
+              ) {
+                // Marcar span para no enviarlo
+                span.setAttribute("otel.skip", true);
+                return;
+              }
+
+              // Limitar longitud de queries muy largas
               span.setAttribute(
                 "db.statement",
                 text.length > 500 ? text.substring(0, 500) + "..." : text
               );
+
+              // Agregar tipo de operación
+              if (upperText.startsWith("INSERT")) {
+                span.setAttribute("db.operation", "INSERT");
+              } else if (upperText.startsWith("UPDATE")) {
+                span.setAttribute("db.operation", "UPDATE");
+              } else if (upperText.startsWith("DELETE")) {
+                span.setAttribute("db.operation", "DELETE");
+              }
             }
           }
         },
