@@ -15,7 +15,7 @@ export async function validateClienteExists(
 ): Promise<{ valid: boolean; error?: string; data?: any }> {
   try {
     const result = await pool.query(
-      "SELECT id, nombre, estado FROM clientes WHERE id = $1",
+      "SELECT cliente_id, nombre FROM clientes WHERE cliente_id = $1",
       [clienteId]
     );
 
@@ -26,18 +26,9 @@ export async function validateClienteExists(
       };
     }
 
-    const cliente = result.rows[0];
-
-    if (cliente.estado !== "activo") {
-      return {
-        valid: false,
-        error: `Cliente "${cliente.nombre}" está inactivo`,
-      };
-    }
-
     return {
       valid: true,
-      data: cliente,
+      data: result.rows[0],
     };
   } catch (error) {
     console.error("[VALIDATION] Error validating cliente:", error);
@@ -56,7 +47,7 @@ export async function validateProductoExists(
 ): Promise<{ valid: boolean; error?: string; data?: any }> {
   try {
     const result = await pool.query(
-      "SELECT id, codigo, nombre, estado, stock_actual FROM productos WHERE id = $1",
+      "SELECT producto_id, nombre_modelo FROM productos WHERE producto_id = $1",
       [productoId]
     );
 
@@ -67,18 +58,9 @@ export async function validateProductoExists(
       };
     }
 
-    const producto = result.rows[0];
-
-    if (producto.estado !== "activo") {
-      return {
-        valid: false,
-        error: `Producto "${producto.nombre}" está inactivo`,
-      };
-    }
-
     return {
       valid: true,
-      data: producto,
+      data: result.rows[0],
     };
   } catch (error) {
     console.error("[VALIDATION] Error validating producto:", error);
@@ -97,7 +79,7 @@ export async function validateMateriaPrimaExists(
 ): Promise<{ valid: boolean; error?: string; data?: any }> {
   try {
     const result = await pool.query(
-      "SELECT id, codigo, nombre, estado, stock_actual FROM materia_prima WHERE id = $1",
+      "SELECT materia_prima_id, nombre, stock_actual FROM materia_prima WHERE materia_prima_id = $1",
       [materiaPrimaId]
     );
 
@@ -108,18 +90,9 @@ export async function validateMateriaPrimaExists(
       };
     }
 
-    const materiaPrima = result.rows[0];
-
-    if (materiaPrima.estado !== "activo") {
-      return {
-        valid: false,
-        error: `Materia prima "${materiaPrima.nombre}" está inactiva`,
-      };
-    }
-
     return {
       valid: true,
-      data: materiaPrima,
+      data: result.rows[0],
     };
   } catch (error) {
     console.error("[VALIDATION] Error validating materia prima:", error);
@@ -138,7 +111,7 @@ export async function validateProveedorExists(
 ): Promise<{ valid: boolean; error?: string; data?: any }> {
   try {
     const result = await pool.query(
-      "SELECT id, nombre, estado FROM proveedores WHERE id = $1",
+      "SELECT proveedor_id, nombre FROM proveedores WHERE proveedor_id = $1",
       [proveedorId]
     );
 
@@ -149,18 +122,9 @@ export async function validateProveedorExists(
       };
     }
 
-    const proveedor = result.rows[0];
-
-    if (proveedor.estado !== "activo") {
-      return {
-        valid: false,
-        error: `Proveedor "${proveedor.nombre}" está inactivo`,
-      };
-    }
-
     return {
       valid: true,
-      data: proveedor,
+      data: result.rows[0],
     };
   } catch (error) {
     console.error("[VALIDATION] Error validating proveedor:", error);
@@ -179,7 +143,7 @@ export async function validateOperarioExists(
 ): Promise<{ valid: boolean; error?: string; data?: any }> {
   try {
     const result = await pool.query(
-      "SELECT id, nombre, estado, turno FROM operarios WHERE id = $1",
+      "SELECT operario_id, nombre, apellido, rol FROM operarios WHERE operario_id = $1",
       [operarioId]
     );
 
@@ -190,18 +154,9 @@ export async function validateOperarioExists(
       };
     }
 
-    const operario = result.rows[0];
-
-    if (operario.estado !== "activo") {
-      return {
-        valid: false,
-        error: `Operario "${operario.nombre}" está inactivo`,
-      };
-    }
-
     return {
       valid: true,
-      data: operario,
+      data: result.rows[0],
     };
   } catch (error) {
     console.error("[VALIDATION] Error validating operario:", error);
@@ -220,7 +175,7 @@ export async function validateTipoComponenteExists(
 ): Promise<{ valid: boolean; error?: string; data?: any }> {
   try {
     const result = await pool.query(
-      "SELECT id, nombre FROM tipo_componente WHERE id = $1",
+      "SELECT tipo_componente_id, nombre_tipo FROM tipo_componente WHERE tipo_componente_id = $1",
       [tipoComponenteId]
     );
 
@@ -255,7 +210,7 @@ export async function validateProductoStock(
 ): Promise<{ valid: boolean; error?: string; warnings?: string[] }> {
   try {
     const result = await pool.query(
-      "SELECT id, nombre, stock_actual, stock_minimo FROM productos WHERE id = $1",
+      "SELECT producto_id, nombre_modelo FROM productos WHERE producto_id = $1",
       [productoId]
     );
 
@@ -266,26 +221,9 @@ export async function validateProductoStock(
       };
     }
 
-    const producto = result.rows[0];
-    const warnings: string[] = [];
-
-    if (producto.stock_actual < cantidadRequerida) {
-      return {
-        valid: false,
-        error: `Stock insuficiente de "${producto.nombre}". Disponible: ${producto.stock_actual}, Requerido: ${cantidadRequerida}`,
-      };
-    }
-
-    const stockRestante = producto.stock_actual - cantidadRequerida;
-    if (stockRestante < producto.stock_minimo) {
-      warnings.push(
-        `Stock de "${producto.nombre}" quedará por debajo del mínimo (${producto.stock_minimo})`
-      );
-    }
-
+    // Productos no tienen control de stock en el schema
     return {
       valid: true,
-      warnings,
     };
   } catch (error) {
     console.error("[VALIDATION] Error validating producto stock:", error);
@@ -305,7 +243,7 @@ export async function validateMateriaPrimaStock(
 ): Promise<{ valid: boolean; error?: string; warnings?: string[] }> {
   try {
     const result = await pool.query(
-      "SELECT id, nombre, stock_actual, stock_minimo FROM materia_prima WHERE id = $1",
+      "SELECT materia_prima_id, nombre, stock_actual, punto_pedido FROM materia_prima WHERE materia_prima_id = $1",
       [materiaPrimaId]
     );
 
@@ -327,9 +265,12 @@ export async function validateMateriaPrimaStock(
     }
 
     const stockRestante = materiaPrima.stock_actual - cantidadRequerida;
-    if (stockRestante < materiaPrima.stock_minimo) {
+    if (
+      materiaPrima.punto_pedido &&
+      stockRestante < materiaPrima.punto_pedido
+    ) {
       warnings.push(
-        `Stock de "${materiaPrima.nombre}" quedará por debajo del mínimo (${materiaPrima.stock_minimo})`
+        `Stock de "${materiaPrima.nombre}" quedará por debajo del punto de pedido (${materiaPrima.punto_pedido})`
       );
     }
 
@@ -358,8 +299,8 @@ export async function validateClienteEmailUnique(
   try {
     const params = excludeId ? [email, excludeId] : [email];
     const query_text = excludeId
-      ? "SELECT id FROM clientes WHERE LOWER(email) = LOWER($1) AND id != $2"
-      : "SELECT id FROM clientes WHERE LOWER(email) = LOWER($1)";
+      ? "SELECT cliente_id FROM clientes WHERE LOWER(email) = LOWER($1) AND cliente_id != $2"
+      : "SELECT cliente_id FROM clientes WHERE LOWER(email) = LOWER($1)";
 
     const result = await pool.query(query_text, params);
 
@@ -382,38 +323,18 @@ export async function validateClienteEmailUnique(
 
 /**
  * Check if a producto codigo already exists
+ * NOTE: Productos table doesn't have a 'codigo' column - this validation always passes
  */
 export async function validateProductoCodigoUnique(
   codigo: string,
   excludeId?: number
 ): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const params = excludeId ? [codigo, excludeId] : [codigo];
-    const query_text = excludeId
-      ? "SELECT id FROM productos WHERE UPPER(codigo) = UPPER($1) AND id != $2"
-      : "SELECT id FROM productos WHERE UPPER(codigo) = UPPER($1)";
-
-    const result = await pool.query(query_text, params);
-
-    if (result.rows.length > 0) {
-      return {
-        valid: false,
-        error: "Ya existe un producto con este código",
-      };
-    }
-
-    return { valid: true };
-  } catch (error) {
-    console.error("[VALIDATION] Error validating producto codigo:", error);
-    return {
-      valid: false,
-      error: "Error al validar código de producto",
-    };
-  }
+  // Productos no tienen columna 'codigo' en el schema
+  return { valid: true };
 }
 
 /**
- * Check if a materia prima codigo already exists
+ * Check if a materia prima referencia_proveedor already exists
  */
 export async function validateMateriaPrimaCodigoUnique(
   codigo: string,
@@ -422,58 +343,41 @@ export async function validateMateriaPrimaCodigoUnique(
   try {
     const params = excludeId ? [codigo, excludeId] : [codigo];
     const query_text = excludeId
-      ? "SELECT id FROM materia_prima WHERE UPPER(codigo) = UPPER($1) AND id != $2"
-      : "SELECT id FROM materia_prima WHERE UPPER(codigo) = UPPER($1)";
+      ? "SELECT materia_prima_id FROM materia_prima WHERE referencia_proveedor = $1 AND materia_prima_id != $2"
+      : "SELECT materia_prima_id FROM materia_prima WHERE referencia_proveedor = $1";
 
     const result = await pool.query(query_text, params);
 
     if (result.rows.length > 0) {
       return {
         valid: false,
-        error: "Ya existe una materia prima con este código",
+        error: "Ya existe una materia prima con esta referencia",
       };
     }
 
     return { valid: true };
   } catch (error) {
-    console.error("[VALIDATION] Error validating materia prima codigo:", error);
+    console.error(
+      "[VALIDATION] Error validating materia prima referencia:",
+      error
+    );
     return {
       valid: false,
-      error: "Error al validar código de materia prima",
+      error: "Error al validar referencia de materia prima",
     };
   }
 }
 
 /**
  * Check if an operario numero_documento already exists
+ * NOTE: Operarios table doesn't have a 'numero_documento' column - this validation always passes
  */
 export async function validateOperarioDocumentoUnique(
   numeroDocumento: string,
   excludeId?: number
 ): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const params = excludeId ? [numeroDocumento, excludeId] : [numeroDocumento];
-    const query_text = excludeId
-      ? "SELECT id FROM operarios WHERE numero_documento = $1 AND id != $2"
-      : "SELECT id FROM operarios WHERE numero_documento = $1";
-
-    const result = await pool.query(query_text, params);
-
-    if (result.rows.length > 0) {
-      return {
-        valid: false,
-        error: "Ya existe un operario con este número de documento",
-      };
-    }
-
-    return { valid: true };
-  } catch (error) {
-    console.error("[VALIDATION] Error validating operario documento:", error);
-    return {
-      valid: false,
-      error: "Error al validar número de documento",
-    };
-  }
+  // Operarios no tienen columna 'numero_documento' en el schema
+  return { valid: true };
 }
 
 // ==================== Batch Validation ====================

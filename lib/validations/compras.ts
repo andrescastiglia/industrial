@@ -21,40 +21,27 @@ export const compraEstadoEnum = z.enum(["pendiente", "recibida", "cancelada"], {
 // ==================== Base Schema ====================
 
 export const compraBaseSchema = z.object({
-  numero_compra: z
-    .string()
-    .min(1, "Número de compra requerido")
-    .max(50, "Máximo 50 caracteres")
-    .regex(
-      /^COM-\d{4,10}$/,
-      "Formato de número de compra inválido (debe ser COM-XXXX)"
-    ),
-
   proveedor_id: positiveIntSchema,
 
-  fecha_compra: dateSchema,
+  fecha_pedido: dateSchema,
 
-  fecha_entrega_estimada: dateSchema,
+  fecha_recepcion_estimada: dateSchema.optional(),
 
-  subtotal: nonNegativeDecimalSchema.max(
-    999999999.99,
-    "Subtotal demasiado alto"
-  ),
+  fecha_recepcion_real: dateSchema.optional().nullable(),
 
-  impuestos: nonNegativeDecimalSchema.max(
-    999999999.99,
-    "Impuestos demasiado altos"
-  ),
+  estado: z.string().max(50, "Máximo 50 caracteres").default("Pendiente"),
 
-  total: positiveDecimalSchema.max(999999999.99, "Total demasiado alto"),
+  total_compra: positiveDecimalSchema
+    .max(999999999.99, "Total demasiado alto")
+    .optional()
+    .nullable(),
 
-  estado: compraEstadoEnum.default("pendiente"),
-
-  notas: z
+  cotizacion_ref: z
     .string()
-    .max(1000, "Máximo 1000 caracteres")
+    .max(100, "Máximo 100 caracteres")
     .trim()
     .optional()
+    .nullable()
     .or(z.literal("")),
 });
 
@@ -77,7 +64,7 @@ export const compraDetalleSchema = z.object({
 
 /**
  * Schema for creating a new compra with details
- * Validates that totals are consistent and delivery date is after purchase date
+ * Validates that delivery date is after purchase date if provided
  */
 export const createCompraSchema = compraBaseSchema
   .extend({
@@ -87,53 +74,16 @@ export const createCompraSchema = compraBaseSchema
   })
   .refine(
     (data) => {
-      // Validate that fecha_entrega_estimada is after fecha_compra
+      // Validate that fecha_recepcion_estimada is after fecha_pedido if provided
+      if (!data.fecha_recepcion_estimada) return true;
       return (
-        new Date(data.fecha_entrega_estimada) >= new Date(data.fecha_compra)
+        new Date(data.fecha_recepcion_estimada) >= new Date(data.fecha_pedido)
       );
     },
     {
       message:
-        "La fecha de entrega debe ser igual o posterior a la fecha de compra",
-      path: ["fecha_entrega_estimada"],
-    }
-  )
-  .refine(
-    (data) => {
-      // Validate that subtotal matches sum of detalles
-      const calculatedSubtotal = data.detalles.reduce(
-        (sum, detalle) => sum + detalle.subtotal,
-        0
-      );
-      return Math.abs(calculatedSubtotal - data.subtotal) < 0.01;
-    },
-    {
-      message: "El subtotal no coincide con la suma de los detalles",
-      path: ["subtotal"],
-    }
-  )
-  .refine(
-    (data) => {
-      // Validate that total = subtotal + impuestos
-      const calculatedTotal = data.subtotal + data.impuestos;
-      return Math.abs(calculatedTotal - data.total) < 0.01;
-    },
-    {
-      message: "El total no coincide con subtotal + impuestos",
-      path: ["total"],
-    }
-  )
-  .refine(
-    (data) => {
-      // Validate each detalle subtotal = cantidad * precio_unitario
-      return data.detalles.every((detalle) => {
-        const calculatedSubtotal = detalle.cantidad * detalle.precio_unitario;
-        return Math.abs(calculatedSubtotal - detalle.subtotal) < 0.01;
-      });
-    },
-    {
-      message: "El subtotal de algún detalle no coincide con cantidad × precio",
-      path: ["detalles"],
+        "La fecha de recepción estimada debe ser igual o posterior a la fecha de pedido",
+      path: ["fecha_recepcion_estimada"],
     }
   );
 

@@ -34,7 +34,7 @@ export async function DELETE(
     const client = await pool.connect();
 
     const result = await client.query(
-      "DELETE FROM Ventas WHERE venta_id = $1 RETURNING *",
+      "DELETE FROM Ordenes_Venta WHERE orden_venta_id = $1 RETURNING *",
       [params.id]
     );
 
