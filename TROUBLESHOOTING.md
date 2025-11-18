@@ -219,17 +219,17 @@ const ws = new WebSocket("ws://localhost:3300", {
 psql -U postgres -d industrial
 
 -- Ver producto
-SELECT * FROM Productos WHERE id = 1;
+SELECT * FROM Productos WHERE producto_id = 1;
 
 -- Ver componentes del producto
-SELECT * FROM Productos_Componentes WHERE producto_id = 1;
+SELECT * FROM Componentes_Producto WHERE producto_id = 1;
 ```
 
 **Verificar orden fue creada**:
 
 ```sql
 -- Ver órdenes
-SELECT * FROM Ordenes_Produccion ORDER BY id DESC LIMIT 1;
+SELECT * FROM Ordenes_Produccion ORDER BY orden_produccion_id DESC LIMIT 1;
 
 -- Ver consumos de la orden
 SELECT * FROM Consumo_Materia_Prima_Produccion
@@ -293,8 +293,8 @@ npm run dev
 ```sql
 -- Verificar manualmente
 BEGIN;
-INSERT INTO Consumo_Materia_Prima_Produccion (orden_produccion_id, materia_prima_id, cantidad)
-VALUES (1, 1, 100.00);
+INSERT INTO Consumo_Materia_Prima_Produccion (orden_produccion_id, materia_prima_id, cantidad_requerida, cantidad_usada)
+VALUES (1, 1, 100.00, 0);
 COMMIT;
 ```
 

@@ -187,7 +187,7 @@ psql -U postgres -d industrial -c "\dt"
  public | Ordenes_Produccion                  | table | postgres
  public | Ordenes_Venta                       | table | postgres
  public | Productos                           | table | postgres
- public | Productos_Componentes               | table | postgres
+ public | Componentes_Producto                | table | postgres
  public | Proveedores                         | table | postgres
  public | Tipo_Componente                     | table | postgres
 (14 rows)

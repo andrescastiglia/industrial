@@ -182,17 +182,17 @@ CREATE INDEX idx_consumo_orden ON Consumo_Materia_Prima_Produccion(orden_producc
 CREATE INDEX idx_consumo_material ON Consumo_Materia_Prima_Produccion(materia_prima_id);
 ```
 
-#### Tabla: `Productos_Componentes`
+#### Tabla: `Componentes_Producto`
 
 ```sql
-CREATE TABLE Productos_Componentes (
+CREATE TABLE Componentes_Producto (
     producto_id INT NOT NULL,
-    componente_id INT NOT NULL,
+    materia_prima_id INT NOT NULL,
     cantidad_necesaria NUMERIC(10,2),   -- Por unidad de producto
     angulo_corte VARCHAR(100),
-    PRIMARY KEY (producto_id, componente_id),
+    PRIMARY KEY (producto_id, materia_prima_id),
     FOREIGN KEY (producto_id) REFERENCES Productos(producto_id),
-    FOREIGN KEY (componente_id) REFERENCES Componentes(componente_id)
+    FOREIGN KEY (materia_prima_id) REFERENCES Materia_Prima(materia_prima_id)
 );
 ```
 
@@ -356,7 +356,7 @@ Badge "ALERTA"       (stock ≤ punto_pedido)
 1. Validar entrada
 2. BEGIN transaction
 3. INSERT Ordenes_Produccion
-4. SELECT productos_componentes WHERE producto_id = 1
+4. SELECT componentes_producto WHERE producto_id = 1
 5. FOREACH componente:
      cantidad_total = componente.cantidad_necesaria * 100
      INSERT Consumo_Materia_Prima_Produccion
@@ -450,7 +450,7 @@ ORDER BY op.fecha_creacion DESC;
 ┌─────────────────────────────────────────────────────────────┐
 │ DATABASE: BEGIN transaction                                 │
 │ 1. INSERT Ordenes_Produccion                               │
-│ 2. SELECT Productos_Componentes                            │
+│ 2. SELECT Componentes_Producto                             │
 │ 3. FOREACH: INSERT Consumo_Materia_Prima_Produccion        │
 │ 4. COMMIT                                                   │
 └──────────────────┬──────────────────────────────────────────┘

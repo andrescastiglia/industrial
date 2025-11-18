@@ -55,11 +55,7 @@ Este diseño se ha elaborado siguiendo principios de normalización para asegura
 - **[AUTH_README.md](./AUTH_README.md)**: Sistema de autenticación
 - **[GUIA_USUARIO.md](./GUIA_USUARIO.md)**: Manual de usuario final
 - **[INSTALACION_DEPLOYMENT.md](./INSTALACION_DEPLOYMENT.md)**: Setup y deployment
-- **[EFFICIENCY_ANALYSIS_GUIDE.md](./EFFICIENCY_ANALYSIS_GUIDE.md)**: Análisis de eficiencia
 - **[DASHBOARD_GUIDE.md](./DASHBOARD_GUIDE.md)**: Dashboard ejecutivo
-- **[VALIDATION_GUIDE.md](./VALIDATION_GUIDE.md)**: Validación de datos
-- **[ERROR_HANDLING_GUIDE.md](./ERROR_HANDLING_GUIDE.md)**: Manejo de errores
-- **[TESTING_GUIDE.md](./TESTING_GUIDE.md)**: Testing automatizado
 
 ---
 
@@ -114,12 +110,6 @@ Operario: operario@ejemplo.com / operario123
 ## 🎯 Próximas Fases
 
 Ver [ROADMAP_DESARROLLO.md](./ROADMAP_DESARROLLO.md) para detalles completos.
-
----
-
-## 🤝 Contribución
-
-Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para guías de contribución.
 
 ---
 
