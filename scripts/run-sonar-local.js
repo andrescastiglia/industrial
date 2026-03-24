@@ -7,6 +7,8 @@ const path = require("node:path");
 const projectRoot = path.resolve(__dirname, "..");
 const coverageFile = path.join(projectRoot, "coverage", "lcov.info");
 const defaultScannerImage = "sonarsource/sonar-scanner-cli:5.0.1";
+const defaultServerImage = "sonarqube:lts-community";
+const defaultContainerName = "industrial-sonarqube";
 const defaultScannerHostUrl = "http://host.docker.internal:9000";
 const defaultApiUrl = "http://127.0.0.1:9000";
 const trackedRoots = ["app", "components", "hooks", "lib"];
@@ -51,6 +53,114 @@ function capture(command, args, options = {}) {
   }
 
   return result.stdout.trim();
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function isLocalSonarUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ["127.0.0.1", "localhost"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+async function fetchSystemStatus(apiUrl) {
+  const response = await fetch(`${apiUrl}/api/system/status`);
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}: ${text}`);
+  }
+
+  return JSON.parse(text);
+}
+
+function ensureDockerAvailable() {
+  const version = capture("docker", ["--version"]);
+  if (version === null) {
+    fail(
+      "Docker is required to run local SonarQube automatically. Install Docker or set SONAR_API_URL/SONAR_HOST_URL to an existing SonarQube server."
+    );
+  }
+}
+
+function findContainerByName(containerName) {
+  return capture("docker", [
+    "ps",
+    "-a",
+    "--filter",
+    `name=^/${containerName}$`,
+    "--format",
+    "{{.Names}}\t{{.State}}",
+  ]);
+}
+
+function startOrCreateLocalSonar(containerName, serverImage) {
+  const container = findContainerByName(containerName);
+
+  if (container) {
+    const [, state = ""] = container.split("\t");
+    if (state !== "running") {
+      console.log(`Starting local SonarQube container '${containerName}'...`);
+      run("docker", ["start", containerName]);
+    }
+    return;
+  }
+
+  console.log(`Creating local SonarQube container '${containerName}'...`);
+  run("docker", [
+    "run",
+    "-d",
+    "--name",
+    containerName,
+    "-p",
+    "9000:9000",
+    serverImage,
+  ]);
+}
+
+async function ensureLocalSonarReady(apiUrl) {
+  if (!isLocalSonarUrl(apiUrl)) {
+    return;
+  }
+
+  try {
+    const status = await fetchSystemStatus(apiUrl);
+    if (status.status === "UP") {
+      return;
+    }
+  } catch {
+    // Fall through and attempt to start local SonarQube.
+  }
+
+  ensureDockerAvailable();
+
+  const containerName = process.env.SONAR_CONTAINER_NAME || defaultContainerName;
+  const serverImage = process.env.SONAR_SERVER_IMAGE || defaultServerImage;
+
+  startOrCreateLocalSonar(containerName, serverImage);
+
+  const deadline = Date.now() + 4 * 60 * 1000;
+  while (Date.now() < deadline) {
+    try {
+      const status = await fetchSystemStatus(apiUrl);
+      if (status.status === "UP") {
+        return;
+      }
+
+      console.log(`Waiting for SonarQube to be ready (status: ${status.status})...`);
+    } catch {
+      console.log("Waiting for SonarQube to accept connections...");
+    }
+
+    await sleep(5000);
+  }
+
+  fail(`Timed out waiting for SonarQube at ${apiUrl} to become ready.`);
 }
 
 function walkFiles(targetPath) {
@@ -113,6 +223,22 @@ async function requestJson(url, options) {
   return text ? JSON.parse(text) : {};
 }
 
+function formatAuthFailureMessage(error, login) {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  if (!error.message.startsWith("401 ")) {
+    return error.message;
+  }
+
+  return [
+    `SonarQube authentication failed for login '${login}'.`,
+    "Provide valid credentials with SONAR_LOGIN/SONAR_PASSWORD or set SONAR_TOKEN.",
+    `Open ${process.env.SONAR_API_URL || defaultApiUrl} to create a token from My Account > Security.`,
+  ].join(" ");
+}
+
 async function withGeneratedToken(callback) {
   const explicitToken = process.env.SONAR_TOKEN;
   if (explicitToken) {
@@ -138,13 +264,19 @@ async function withGeneratedToken(callback) {
     // Ignore revoke failures and try to generate a fresh token anyway.
   }
 
-  const generated = await requestJson(
-    `${apiUrl}/api/user_tokens/generate?name=${encodeURIComponent(tokenName)}`,
-    {
-      method: "POST",
-      headers,
-    }
-  );
+  let generated;
+
+  try {
+    generated = await requestJson(
+      `${apiUrl}/api/user_tokens/generate?name=${encodeURIComponent(tokenName)}`,
+      {
+        method: "POST",
+        headers,
+      }
+    );
+  } catch (error) {
+    throw new Error(formatAuthFailureMessage(error, login));
+  }
 
   if (!generated.token) {
     throw new Error("SonarQube did not return a token.");
@@ -168,6 +300,10 @@ async function withGeneratedToken(callback) {
 }
 
 async function main() {
+  const apiUrl = process.env.SONAR_API_URL || defaultApiUrl;
+
+  await ensureLocalSonarReady(apiUrl);
+
   if (coverageNeedsRefresh() && process.env.SONAR_SKIP_COVERAGE !== "1") {
     console.log("Refreshing Jest coverage before Sonar scan...");
     run("npx", [
