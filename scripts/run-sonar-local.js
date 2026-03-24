@@ -139,7 +139,8 @@ async function ensureLocalSonarReady(apiUrl) {
 
   ensureDockerAvailable();
 
-  const containerName = process.env.SONAR_CONTAINER_NAME || defaultContainerName;
+  const containerName =
+    process.env.SONAR_CONTAINER_NAME || defaultContainerName;
   const serverImage = process.env.SONAR_SERVER_IMAGE || defaultServerImage;
 
   startOrCreateLocalSonar(containerName, serverImage);
@@ -152,7 +153,9 @@ async function ensureLocalSonarReady(apiUrl) {
         return;
       }
 
-      console.log(`Waiting for SonarQube to be ready (status: ${status.status})...`);
+      console.log(
+        `Waiting for SonarQube to be ready (status: ${status.status})...`
+      );
     } catch {
       console.log("Waiting for SonarQube to accept connections...");
     }
