@@ -1,12 +1,35 @@
 import { Pool } from "pg";
 
+const connectionString =
+  process.env.DATABASE_URL || "postgresql://user:password@localhost:5432/db";
+
+function shouldUseSsl(databaseUrl: string) {
+  const sslPreference = process.env.DATABASE_SSL;
+
+  if (sslPreference === "true") {
+    return true;
+  }
+
+  if (sslPreference === "false") {
+    return false;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return false;
+  }
+
+  try {
+    const hostname = new URL(databaseUrl).hostname;
+
+    return !["localhost", "127.0.0.1"].includes(hostname);
+  } catch {
+    return true;
+  }
+}
+
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL || "postgresql://user:password@localhost:5432/db",
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
+  connectionString,
+  ssl: shouldUseSsl(connectionString) ? { rejectUnauthorized: false } : false,
 });
 
 export { pool };
@@ -59,10 +82,10 @@ export interface ComponenteProducto {
 export interface Cliente {
   cliente_id: number;
   nombre: string;
-  contacto: string;
-  direccion: string;
-  telefono: string;
-  email: string;
+  contacto?: string | null;
+  direccion?: string | null;
+  telefono?: string | null;
+  email?: string | null;
 }
 
 export interface OrdenVenta {
@@ -70,10 +93,11 @@ export interface OrdenVenta {
   cliente_id: number;
   fecha_pedido: Date;
   fecha_entrega_estimada: Date;
-  fecha_entrega_real?: Date;
+  fecha_entrega_real?: Date | null;
   estado: string;
+  total_venta?: number | null;
   cliente_nombre?: string;
-  cliente_contacto?: string;
+  cliente_contacto?: string | null;
   detalle?: DetalleOrdenVenta[];
 }
 
@@ -82,17 +106,18 @@ export interface DetalleOrdenVenta {
   orden_venta_id: number;
   producto_id: number;
   cantidad: number;
+  precio_unitario_venta?: number | null;
 }
 
 export interface OrdenProduccion {
   orden_produccion_id: number;
-  orden_venta_id?: number;
+  orden_venta_id?: number | null;
   producto_id: number;
   cantidad_a_producir: number;
   fecha_creacion: Date;
-  fecha_inicio?: Date;
-  fecha_fin_estimada: Date;
-  fecha_fin_real?: Date;
+  fecha_inicio?: Date | null;
+  fecha_fin_estimada?: Date | null;
+  fecha_fin_real?: Date | null;
   estado: string;
   consumos?: ConsumoMateriaPrimaProduccion[];
   etapas?: EtapaProduccion[];
@@ -122,12 +147,13 @@ export interface Compra {
   compra_id: number;
   proveedor_id: number;
   fecha_pedido: Date;
-  fecha_recepcion_estimada: Date;
-  fecha_recepcion_real?: Date;
+  fecha_recepcion_estimada?: Date | null;
+  fecha_recepcion_real?: Date | null;
   estado: string;
-  total_compra: number;
-  cotizacion_ref: string;
+  total_compra?: number | null;
+  cotizacion_ref?: string | null;
   nombre_proveedor?: string;
+  detalles?: DetalleCompraMateriaPrima[];
 }
 
 export interface DetalleCompraMateriaPrima {

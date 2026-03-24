@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { KeyboardEvent } from "react";
 import {
   Card,
   CardContent,
@@ -85,7 +86,8 @@ export default function ReportsPage() {
     setIsGenerating(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("accessToken") || localStorage.getItem("token");
       const response = await fetch(
         `/api/reports/pdf?type=${selectedType}&period=${selectedPeriod}`,
         {
@@ -128,7 +130,8 @@ export default function ReportsPage() {
     setIsGenerating(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("accessToken") || localStorage.getItem("token");
       const response = await fetch(
         `/api/reports/excel?type=${selectedType}&period=${selectedPeriod}`,
         {
@@ -194,7 +197,8 @@ export default function ReportsPage() {
     setIsSending(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("accessToken") || localStorage.getItem("token");
       const response = await fetch("/api/reports/email", {
         method: "POST",
         headers: {
@@ -232,6 +236,16 @@ export default function ReportsPage() {
 
   const selectedReport = reportTypes.find((r) => r.value === selectedType);
 
+  const handleReportCardKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+    reportType: ReportType
+  ) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setSelectedType(reportType);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -265,7 +279,15 @@ export default function ReportsPage() {
                         ? "border-primary bg-primary/5"
                         : "hover:border-primary/50"
                     }`}
+                    data-testid={`report-type-${type.value}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selectedType === type.value}
+                    aria-label={`Reporte ${type.label}`}
                     onClick={() => setSelectedType(type.value as ReportType)}
+                    onKeyDown={(event) =>
+                      handleReportCardKeyDown(event, type.value as ReportType)
+                    }
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start space-x-3">

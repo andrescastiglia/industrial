@@ -27,3 +27,6 @@ next-env.d.ts
 *.sh
 
 /coverage/
+/playwright-report/
+/test-results/
+/.e2e-artifacts/

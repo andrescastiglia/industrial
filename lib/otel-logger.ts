@@ -8,7 +8,13 @@
  * - Solo en producción cuando configurado
  */
 
-import { trace, context, SpanStatusCode, Exception } from "@opentelemetry/api";
+import {
+  trace,
+  context,
+  SpanStatusCode,
+  type Exception,
+  type Span,
+} from "@opentelemetry/api";
 
 type LogLevel = "debug" | "info" | "warning" | "error" | "fatal";
 
@@ -106,12 +112,12 @@ export function logToOtel(
  */
 export function withTrace<T>(
   name: string,
-  operation: () => T | Promise<T>,
+  operation: (span: Span) => T | Promise<T>,
   attributes?: Record<string, string | number | boolean>
-): Promise<T> {
+  ): Promise<T> {
   return tracer.startActiveSpan(name, { attributes }, async (span) => {
     try {
-      const result = await Promise.resolve(operation());
+      const result = await Promise.resolve(operation(span));
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (error) {

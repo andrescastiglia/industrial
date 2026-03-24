@@ -15,7 +15,7 @@ import path from "path";
 export type LogLevel = "error" | "warn" | "info" | "http" | "debug";
 
 export interface LogMetadata {
-  userId?: string;
+  userId?: string | number;
   requestId?: string;
   path?: string;
   method?: string;
@@ -24,10 +24,12 @@ export interface LogMetadata {
   ip?: string;
   userAgent?: string;
   error?: {
-    code?: string;
+    code?: string | number;
     message?: string;
     stack?: string;
-  };
+    statusCode?: number;
+    details?: unknown;
+  } & Record<string, any>;
   [key: string]: any;
 }
 

@@ -5,6 +5,10 @@ import {
   type JWTPayload,
   type UserRole,
 } from "@/lib/auth";
+import {
+  AUTH_COOKIE_NAME,
+  AUTH_COOKIE_MAX_AGE_SECONDS,
+} from "@/lib/business-constants";
 import { pool } from "@/lib/database";
 import { withTrace, captureApiError } from "@/lib/otel-logger";
 
@@ -15,15 +19,18 @@ export const dynamic = "force-dynamic";
  * Autentica un usuario y devuelve tokens JWT
  */
 export async function POST(request: NextRequest) {
+  let email: string | undefined;
+
   return withTrace("POST /api/auth/login", async (span) => {
     try {
       const body = await request.json();
-      const { email, password } = body;
+      const { email: requestEmail, password } = body;
+      email = requestEmail;
 
-      span?.setAttribute("auth.email", email);
+      span?.setAttribute("auth.email", requestEmail);
 
       // Validación de inputs
-      if (!email || !password) {
+      if (!requestEmail || !password) {
         return NextResponse.json(
           { error: "Email y contraseña son requeridos" },
           { status: 400 }
@@ -34,14 +41,14 @@ export async function POST(request: NextRequest) {
       const client = await pool.connect();
       try {
         const result = await client.query(
-          `SELECT user_id, email, password_hash, role, nombre, apellido, is_active
+         `SELECT user_id, email, password_hash, role, nombre, apellido, is_active
          FROM usuarios 
          WHERE email = $1`,
-          [email]
+          [requestEmail]
         );
 
         if (result.rows.length === 0) {
-          console.log("[AUTH] Usuario no encontrado:", email);
+          console.log("[AUTH] Usuario no encontrado:", requestEmail);
           return NextResponse.json(
             { error: "Email o contraseña inválidos" },
             { status: 401 }
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
 
         // Verificar que el usuario esté activo
         if (!user.is_active) {
-          console.log("[AUTH] Usuario desactivado:", email);
+          console.log("[AUTH] Usuario desactivado:", requestEmail);
           return NextResponse.json(
             { error: "Usuario desactivado. Contacte al administrador" },
             { status: 403 }
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
           user.password_hash
         );
         if (!isValidPassword) {
-          console.log("[AUTH] Password inválido para:", email);
+          console.log("[AUTH] Password inválido para:", requestEmail);
           return NextResponse.json(
             { error: "Email o contraseña inválidos" },
             { status: 401 }
@@ -87,7 +94,7 @@ export async function POST(request: NextRequest) {
 
         const { accessToken, refreshToken } = generateTokenPair(payload);
 
-        console.log("[AUTH] Login exitoso:", email, `(${user.role})`);
+        console.log("[AUTH] Login exitoso:", requestEmail, `(${user.role})`);
 
         // Crear respuesta
         const response = NextResponse.json(
@@ -106,11 +113,11 @@ export async function POST(request: NextRequest) {
         );
 
         // Set cookie para web app (seguridad adicional)
-        response.cookies.set("auth-token", accessToken, {
+        response.cookies.set(AUTH_COOKIE_NAME, accessToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
-          maxAge: 60 * 15, // 15 minutos
+          maxAge: AUTH_COOKIE_MAX_AGE_SECONDS,
           path: "/",
         });
 

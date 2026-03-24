@@ -1,4 +1,4 @@
-import { Config } from "tailwind-merge";
+import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 const config: Config = {

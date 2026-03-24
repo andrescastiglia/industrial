@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,83 +39,139 @@ import { Badge } from "@/components/ui/badge";
 import { useCompras } from "@/hooks/useCompras";
 import { useProveedores } from "@/hooks/useProveedores";
 import { Compra, Proveedor } from "@/lib/database";
+import {
+  COMPRA_ESTADOS,
+  getCompraEstadoLabel,
+  normalizeCompraEstado,
+} from "@/lib/business-constants";
+
+function formatDate(value?: Date | string | null) {
+  if (!value) return "Sin fecha";
+  return new Date(value).toLocaleDateString("es-AR");
+}
+
+function toDateInputValue(value?: Date | string | null) {
+  if (!value) return "";
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function formatCurrency(value?: number | null) {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
+
+function calcularDiasRetraso(
+  fechaEstimada?: Date | string | null,
+  fechaReal?: Date | string | null
+) {
+  if (!fechaEstimada) return 0;
+
+  const actual = fechaReal ? new Date(fechaReal) : new Date();
+  const diffTime = actual.getTime() - new Date(fechaEstimada).getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  return diffDays > 0 ? diffDays : 0;
+}
+
+function getEstadoBadge(estado: string) {
+  const normalized = normalizeCompraEstado(estado);
+  const label = getCompraEstadoLabel(estado);
+
+  switch (normalized) {
+    case "recibida":
+      return <Badge variant="default">{label}</Badge>;
+    case "cancelada":
+      return <Badge variant="destructive">{label}</Badge>;
+    default:
+      return <Badge variant="secondary">{label}</Badge>;
+  }
+}
 
 export default function ComprasPage() {
-  const { compras, refetch, createCompra, updateCompra, deleteCompra } =
+  const { compras, loading, error, createCompra, updateCompra, deleteCompra } =
     useCompras() as {
       compras: Compra[];
-      refetch: () => void;
-      // eslint-disable-next-line no-unused-vars
+      loading: boolean;
+      error: string | null;
       createCompra: (data: Partial<Compra>) => Promise<Compra>;
-      // eslint-disable-next-line no-unused-vars
       updateCompra: (id: number, data: Partial<Compra>) => Promise<Compra>;
-      // eslint-disable-next-line no-unused-vars
       deleteCompra: (id: number) => Promise<void>;
     };
+  const { proveedores } = useProveedores() as {
+    proveedores: Proveedor[];
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCompra, setEditingCompra] = useState<Compra | null>(null);
 
-  const { proveedores } = useProveedores() as {
-    proveedores: Proveedor[];
+  const proveedoresLoaded = proveedores.length > 0;
+
+  const getProveedorNombre = (proveedorId: number) => {
+    const proveedor = proveedores.find(
+      (item) => item.proveedor_id === proveedorId
+    );
+    return proveedor?.nombre || `Proveedor #${proveedorId}`;
   };
-  // Ensure proveedores is loaded before rendering
-  const proveedoresLoaded = proveedores && proveedores.length > 0;
 
   const filteredCompras = compras.filter((compra) => {
-    const proveedor = proveedores.find(
-      (p) => p.proveedor_id === compra.proveedor_id
-    );
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+
     return (
-      compra.compra_id.toString().includes(searchTerm.toLowerCase()) ||
-      proveedor?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      compra.estado.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      compra.cotizacion_ref.toLowerCase().includes(searchTerm.toLowerCase())
+      String(compra.compra_id).includes(query) ||
+      getProveedorNombre(compra.proveedor_id).toLowerCase().includes(query) ||
+      getCompraEstadoLabel(compra.estado).toLowerCase().includes(query) ||
+      String(compra.cotizacion_ref || "")
+        .toLowerCase()
+        .includes(query)
     );
   });
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("es-AR");
-  };
+  const comprasConRetraso = compras.filter(
+    (compra) =>
+      !compra.fecha_recepcion_real &&
+      calcularDiasRetraso(compra.fecha_recepcion_estimada) > 0
+  );
 
-  const calcularDiasRetraso = (fechaEstimada: Date, fechaReal?: Date) => {
-    const estimada = new Date(fechaEstimada);
-    const actual = fechaReal ?? new Date();
-    const diffTime = new Date(actual).getTime() - new Date(estimada).getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : 0;
-  };
+  const totalComprado = compras.reduce(
+    (total, compra) => total + Number(compra.total_compra || 0),
+    0
+  );
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
 
-    const compraData: Compra = {
-      compra_id: editingCompra ? editingCompra.compra_id : 0,
+    const formData = new FormData(event.currentTarget);
+    const payload = {
       proveedor_id: Number(formData.get("proveedor_id")),
-      fecha_pedido: new Date(formData.get("fecha_pedido") as string),
-      fecha_recepcion_estimada: new Date(
-        formData.get("fecha_recepcion_estimada") as string
-      ),
+      fecha_pedido: new Date(String(formData.get("fecha_pedido"))),
+      fecha_recepcion_estimada: formData.get("fecha_recepcion_estimada")
+        ? new Date(String(formData.get("fecha_recepcion_estimada")))
+        : null,
       fecha_recepcion_real: formData.get("fecha_recepcion_real")
-        ? new Date(formData.get("fecha_recepcion_real") as string)
-        : undefined,
-      estado: formData.get("estado") as string,
-      total_compra: Number(formData.get("total_compra")),
-      cotizacion_ref: formData.get("cotizacion_ref") as string,
+        ? new Date(String(formData.get("fecha_recepcion_real")))
+        : null,
+      estado: String(formData.get("estado")),
+      total_compra: Number(formData.get("total_compra") || 0),
+      cotizacion_ref:
+        String(formData.get("cotizacion_ref") || "").trim() || null,
     };
 
     try {
       if (editingCompra) {
-        await updateCompra(editingCompra.compra_id, compraData);
+        await updateCompra(editingCompra.compra_id, payload);
       } else {
-        await createCompra(compraData);
+        await createCompra(payload);
       }
-      refetch();
-      setIsDialogOpen(false);
+
       setEditingCompra(null);
+      setIsDialogOpen(false);
     } catch {
-      // Manejo de error opcional
+      // El hook ya expone el error
     }
   };
 
@@ -127,9 +183,8 @@ export default function ComprasPage() {
   const handleDelete = async (id: number) => {
     try {
       await deleteCompra(id);
-      refetch();
     } catch {
-      // Manejo de error opcional
+      // El hook ya expone el error
     }
   };
 
@@ -138,29 +193,21 @@ export default function ComprasPage() {
     setIsDialogOpen(false);
   };
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
-      case "Pendiente":
-        return <Badge variant="secondary">Pendiente</Badge>;
-      case "Recibida":
-        return <Badge variant="default">Recibida</Badge>;
-      case "Cancelada":
-        return <Badge variant="destructive">Cancelada</Badge>;
-      default:
-        return <Badge variant="secondary">{estado}</Badge>;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Cargando compras...</div>
+      </div>
+    );
+  }
 
-  const getProveedorNombre = (proveedor_id: number) => {
-    const proveedor = proveedores.find((p) => p.proveedor_id === proveedor_id);
-    return proveedor ? proveedor.nombre : `Proveedor #${proveedor_id}`;
-  };
-
-  const comprasConRetraso = compras.filter(
-    (compra) =>
-      !compra.fecha_recepcion_real &&
-      calcularDiasRetraso(compra.fecha_recepcion_estimada) > 0
-  );
+  if (error && compras.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-red-600">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -168,7 +215,7 @@ export default function ComprasPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Compras</h2>
           <p className="text-muted-foreground">
-            Gestión de órdenes de compra y proveedores
+            Gestion de ordenes de compra y proveedores
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -178,18 +225,24 @@ export default function ComprasPage() {
               Nueva Compra
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] bg-gray-100">
+          <DialogContent className="sm:max-w-[520px] bg-gray-100">
             <DialogHeader>
               <DialogTitle>
                 {editingCompra ? "Editar Compra" : "Nueva Compra"}
               </DialogTitle>
               <DialogDescription>
                 {editingCompra
-                  ? "Modifica los datos de la compra"
+                  ? "Actualiza los datos de la compra"
                   : "Completa los datos de la nueva compra"}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="proveedor_id">Proveedor</Label>
                 <select
@@ -219,21 +272,17 @@ export default function ComprasPage() {
                   )}
                 </select>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="cotizacion_ref">Referencia de Cotización</Label>
+                <Label htmlFor="cotizacion_ref">Referencia</Label>
                 <Input
                   id="cotizacion_ref"
                   name="cotizacion_ref"
-                  defaultValue={
-                    editingCompra?.cotizacion_ref ||
-                    `COT-${new Date().getFullYear()}-${String(
-                      compras.length + 1
-                    ).padStart(3, "0")}`
-                  }
-                  placeholder="COT-2024-001"
-                  required
+                  defaultValue={editingCompra?.cotizacion_ref || ""}
+                  placeholder="COT-2026-001"
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fecha_pedido">Fecha de Pedido</Label>
@@ -241,49 +290,35 @@ export default function ComprasPage() {
                     id="fecha_pedido"
                     name="fecha_pedido"
                     type="date"
-                    defaultValue={
-                      editingCompra?.fecha_pedido
-                        ? new Date(editingCompra.fecha_pedido)
-                            .toISOString()
-                            .slice(0, 10)
-                        : ""
-                    }
+                    defaultValue={toDateInputValue(editingCompra?.fecha_pedido)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fecha_recepcion_estimada">
-                    Recepción Estimada
+                    Recepcion Estimada
                   </Label>
                   <Input
                     id="fecha_recepcion_estimada"
                     name="fecha_recepcion_estimada"
                     type="date"
-                    defaultValue={
+                    defaultValue={toDateInputValue(
                       editingCompra?.fecha_recepcion_estimada
-                        ? new Date(editingCompra.fecha_recepcion_estimada)
-                            .toISOString()
-                            .slice(0, 10)
-                        : ""
-                    }
-                    required
+                    )}
                   />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="fecha_recepcion_real">Recepción Real</Label>
+                  <Label htmlFor="fecha_recepcion_real">Recepcion Real</Label>
                   <Input
                     id="fecha_recepcion_real"
                     name="fecha_recepcion_real"
                     type="date"
-                    defaultValue={
+                    defaultValue={toDateInputValue(
                       editingCompra?.fecha_recepcion_real
-                        ? new Date(editingCompra.fecha_recepcion_real)
-                            .toISOString()
-                            .slice(0, 10)
-                        : ""
-                    }
+                    )}
                   />
                 </div>
                 <div className="space-y-2">
@@ -292,28 +327,31 @@ export default function ComprasPage() {
                     id="estado"
                     name="estado"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                    defaultValue={editingCompra?.estado || "Pendiente"}
+                    defaultValue={editingCompra?.estado || "pendiente"}
                     required
                   >
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Recibida">Recibida</option>
-                    <option value="Cancelada">Cancelada</option>
+                    {COMPRA_ESTADOS.map((estado) => (
+                      <option key={estado} value={estado}>
+                        {getCompraEstadoLabel(estado)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="total_compra">Total de Compra</Label>
+                <Label htmlFor="total_compra">Total</Label>
                 <Input
                   id="total_compra"
                   name="total_compra"
                   type="number"
                   step="0.01"
                   min="0"
-                  defaultValue={editingCompra?.total_compra || ""}
-                  placeholder="0.00"
+                  defaultValue={editingCompra?.total_compra || 0}
                   required
                 />
               </div>
+
               <div className="flex justify-end space-x-2">
                 <Button
                   type="button"
@@ -344,16 +382,26 @@ export default function ComprasPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Demorada</CardTitle>
+            <CardTitle className="text-sm font-medium">Demoradas</CardTitle>
             <Calendar className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
+              {comprasConRetraso.length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
+            <Calendar className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
               {
                 compras.filter(
-                  (c) =>
-                    c.fecha_recepcion_real == null &&
-                    c.fecha_recepcion_estimada >= new Date()
+                  (compra) =>
+                    normalizeCompraEstado(compra.estado) === "pendiente"
                 ).length
               }
             </div>
@@ -361,27 +409,23 @@ export default function ComprasPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendiente</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium">Invertido</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {compras.filter((c) => c.fecha_recepcion_real == null).length}
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(totalComprado)}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Alerta de compras con retraso */}
       {comprasConRetraso.length > 0 && (
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
-            <CardTitle className="text-red-800">
-              ⚠️ Compras con Retraso
-            </CardTitle>
+            <CardTitle className="text-red-800">Compras con Retraso</CardTitle>
             <CardDescription className="text-red-600">
-              {comprasConRetraso.length} compra(s) han superado su fecha de
-              recepción estimada
+              {comprasConRetraso.length} compra(s) superaron la fecha estimada
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -396,8 +440,7 @@ export default function ComprasPage() {
                     {getProveedorNombre(compra.proveedor_id)}
                   </span>
                   <Badge variant="destructive">
-                    {calcularDiasRetraso(compra.fecha_recepcion_estimada)} días
-                    de retraso
+                    {calcularDiasRetraso(compra.fecha_recepcion_estimada)} dias
                   </Badge>
                 </div>
               ))}
@@ -410,7 +453,7 @@ export default function ComprasPage() {
         <CardHeader>
           <CardTitle>Registro de Compras</CardTitle>
           <CardDescription>
-            Gestión completa de órdenes de compra
+            Gestion completa de ordenes de compra
           </CardDescription>
           <div className="flex items-center space-x-2">
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -429,13 +472,13 @@ export default function ComprasPage() {
                 <TableHead className="hidden md:table-cell">ID</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead className="hidden lg:table-cell">
-                  Cotización
+                  Referencia
                 </TableHead>
                 <TableHead className="hidden md:table-cell">
                   Fecha Pedido
                 </TableHead>
                 <TableHead className="hidden lg:table-cell">
-                  Recepción Estimada
+                  Recepcion Estimada
                 </TableHead>
                 <TableHead className="hidden md:table-cell">Estado</TableHead>
                 <TableHead className="hidden md:table-cell">Total</TableHead>
@@ -454,17 +497,14 @@ export default function ComprasPage() {
                         {getProveedorNombre(compra.proveedor_id)}
                       </div>
                       <div className="md:hidden text-sm text-muted-foreground">
-                        {getEstadoBadge(compra.estado)} • S/{" "}
-                        {compra.total_compra}
-                      </div>
-                      <div className="md:hidden text-xs text-muted-foreground mt-1">
-                        {formatDate(compra.fecha_pedido)}
+                        {getEstadoBadge(compra.estado)} •{" "}
+                        {formatCurrency(compra.total_compra)}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <code className="bg-gray-100 px-2 py-1 rounded text-sm">
-                      {compra.cotizacion_ref}
+                      {compra.cotizacion_ref || "-"}
                     </code>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
@@ -480,7 +520,7 @@ export default function ComprasPage() {
                             {calcularDiasRetraso(
                               compra.fecha_recepcion_estimada
                             )}{" "}
-                            días retraso
+                            dias retraso
                           </Badge>
                         )}
                     </div>
@@ -489,7 +529,7 @@ export default function ComprasPage() {
                     {getEstadoBadge(compra.estado)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    S/ {compra.total_compra}
+                    {formatCurrency(compra.total_compra)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">

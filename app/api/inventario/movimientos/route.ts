@@ -12,10 +12,14 @@ import { withTrace, captureApiError } from "@/lib/otel-logger";
 export const dynamic = "force-dynamic";
 
 export async function PUT(request: NextRequest) {
+  let auth: ReturnType<typeof authenticateApiRequest> | undefined;
+  let materia_prima_id: number | undefined;
+  let cantidad: number | undefined;
+
   return withTrace("PUT /api/inventario/movimientos", async (span) => {
     try {
       // Autenticar usuario
-      const auth = authenticateApiRequest(request);
+      auth = authenticateApiRequest(request);
 
       if (auth.user) {
         span?.setAttribute("user.id", auth.user.userId);
@@ -31,7 +35,7 @@ export async function PUT(request: NextRequest) {
       if (permissionError) return permissionError;
 
       const body = await request.json();
-      const { materia_prima_id, cantidad } = body;
+      ({ materia_prima_id, cantidad } = body);
 
       logApiOperation(
         "PUT",
@@ -52,7 +56,9 @@ export async function PUT(request: NextRequest) {
       client.release();
 
       if (result.rows.length === 0) {
-        span?.setAttribute("inventory.materia_prima_id", materia_prima_id);
+        if (materia_prima_id !== undefined) {
+          span?.setAttribute("inventory.materia_prima_id", materia_prima_id);
+        }
         span?.setAttribute("inventory.found", false);
         return NextResponse.json(
           { error: "materia_prima no encontrada" },
@@ -60,8 +66,12 @@ export async function PUT(request: NextRequest) {
         );
       }
 
-      span?.setAttribute("inventory.materia_prima_id", materia_prima_id);
-      span?.setAttribute("inventory.updated_stock", cantidad);
+      if (materia_prima_id !== undefined) {
+        span?.setAttribute("inventory.materia_prima_id", materia_prima_id);
+      }
+      if (cantidad !== undefined) {
+        span?.setAttribute("inventory.updated_stock", cantidad);
+      }
       span?.setAttribute("inventory.success", true);
       span?.setAttribute("db.operation", "UPDATE");
 
@@ -70,10 +80,10 @@ export async function PUT(request: NextRequest) {
       console.error("Error updating materia_prima:", error);
       captureApiError(
         error,
-        "/api/inventario/movimientos",
-        "PUT",
-        auth?.user?.userId,
-        { materia_prima_id, cantidad }
+          "/api/inventario/movimientos",
+          "PUT",
+          auth?.user?.userId,
+          { materia_prima_id, cantidad }
       );
       return NextResponse.json(
         { error: "Error interno del servidor" },

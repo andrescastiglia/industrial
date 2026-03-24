@@ -50,11 +50,19 @@ export default function ClientesPage() {
 
   const filteredClientes = clientes.filter(
     (cliente) =>
-      cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.contacto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.telefono.includes(searchTerm) ||
-      cliente.direccion.toLowerCase().includes(searchTerm.toLowerCase())
+      String(cliente.nombre || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      String(cliente.contacto || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      String(cliente.email || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      String(cliente.telefono || "").includes(searchTerm) ||
+      String(cliente.direccion || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
   );
 
   // El hook useClientes ya carga los datos automáticamente

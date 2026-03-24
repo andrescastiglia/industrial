@@ -10,7 +10,7 @@ export interface ConsumoCalculado {
 
 /**
  * Calcula automáticamente el consumo de materiales basándose en:
- * - Los componentes del producto (Productos_Componentes)
+ * - Los componentes del producto (Componentes_Producto)
  * - La cantidad de productos a fabricar
  */
 export async function calculateMaterialConsumption(
@@ -23,29 +23,24 @@ export async function calculateMaterialConsumption(
     // Obtener componentes del producto con sus cantidades necesarias
     const result = await client.query(
       `SELECT 
-        pc.componente_id,
-        c.nombre,
-        pc.cantidad_necesaria,
-        mp.materia_prima_id
-      FROM Productos_Componentes pc
-      JOIN Componentes c ON pc.componente_id = c.componente_id
-      LEFT JOIN Componentes_Materia_Prima cmp ON c.componente_id = cmp.componente_id
-      LEFT JOIN Materia_Prima mp ON cmp.materia_prima_id = mp.materia_prima_id
-      WHERE pc.producto_id = $1
-      ORDER BY c.nombre`,
+        cp.materia_prima_id,
+        mp.nombre,
+        cp.cantidad_necesaria
+      FROM Componentes_Producto cp
+      JOIN Materia_Prima mp ON cp.materia_prima_id = mp.materia_prima_id
+      WHERE cp.producto_id = $1
+      ORDER BY mp.nombre`,
       [producto_id]
     );
 
     // Calcular consumo total por componente
-    return result.rows
-      .filter((row) => row.materia_prima_id) // Solo incluir si tiene materia prima asignada
-      .map((row) => ({
-        materia_prima_id: row.materia_prima_id,
-        nombre: row.nombre,
-        cantidad_necesaria_por_unidad: row.cantidad_necesaria,
-        cantidad_total: row.cantidad_necesaria * cantidad,
-        cantidad_orden: cantidad,
-      }));
+    return result.rows.map((row) => ({
+      materia_prima_id: row.materia_prima_id,
+      nombre: row.nombre,
+      cantidad_necesaria_por_unidad: Number(row.cantidad_necesaria),
+      cantidad_total: Number(row.cantidad_necesaria) * cantidad,
+      cantidad_orden: cantidad,
+    }));
   } finally {
     client.release();
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTH_COOKIE_NAME } from "@/lib/business-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Limpiar cookie del token
-    response.cookies.set("token", "", {
+    response.cookies.set(AUTH_COOKIE_NAME, "", {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

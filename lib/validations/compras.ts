@@ -1,6 +1,5 @@
 /**
- * Compra validation schemas
- * Comprehensive validation for purchase data
+ * Compra validation schemas aligned with scripts/database-schema.sql
  */
 
 import { z } from "zod";
@@ -9,33 +8,40 @@ import {
   positiveDecimalSchema,
   nonNegativeDecimalSchema,
   dateSchema,
-  futureDateSchema,
 } from "./common";
+import {
+  COMPRA_ESTADOS,
+  normalizeCompraEstado,
+} from "@/lib/business-constants";
 
-// ==================== Enums ====================
-
-export const compraEstadoEnum = z.enum(["pendiente", "recibida", "cancelada"], {
+export const compraEstadoEnum = z.enum(COMPRA_ESTADOS, {
   message: "Estado de compra inválido",
 });
 
-// ==================== Base Schema ====================
-
 export const compraBaseSchema = z.object({
   proveedor_id: positiveIntSchema,
-
   fecha_pedido: dateSchema,
-
-  fecha_recepcion_estimada: dateSchema.optional(),
-
+  fecha_recepcion_estimada: dateSchema.optional().nullable(),
   fecha_recepcion_real: dateSchema.optional().nullable(),
-
-  estado: z.string().max(50, "Máximo 50 caracteres").default("Pendiente"),
-
-  total_compra: positiveDecimalSchema
+  estado: z
+    .string()
+    .trim()
+    .transform((value, ctx) => {
+      const normalized = normalizeCompraEstado(value);
+      if (!normalized) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Estado de compra inválido",
+        });
+        return z.NEVER;
+      }
+      return normalized;
+    })
+    .default("pendiente"),
+  total_compra: nonNegativeDecimalSchema
     .max(999999999.99, "Total demasiado alto")
     .optional()
     .nullable(),
-
   cotizacion_ref: z
     .string()
     .max(100, "Máximo 100 caracteres")
@@ -45,36 +51,28 @@ export const compraBaseSchema = z.object({
     .or(z.literal("")),
 });
 
-// ==================== Compra Detalle Schema ====================
-
 export const compraDetalleSchema = z.object({
   materia_prima_id: positiveIntSchema,
-
-  cantidad: positiveDecimalSchema.max(999999, "Cantidad demasiado alta"),
-
-  precio_unitario: positiveDecimalSchema.max(
-    999999999.99,
-    "Precio demasiado alto"
-  ),
-
-  subtotal: positiveDecimalSchema.max(999999999.99, "Subtotal demasiado alto"),
+  cantidad_pedida: positiveDecimalSchema.max(999999, "Cantidad demasiado alta"),
+  cantidad_recibida: nonNegativeDecimalSchema
+    .max(999999, "Cantidad recibida demasiado alta")
+    .optional()
+    .nullable(),
+  unidad_medida: z
+    .string()
+    .max(50, "Máximo 50 caracteres")
+    .trim()
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 });
 
-// ==================== Create Schema ====================
-
-/**
- * Schema for creating a new compra with details
- * Validates that delivery date is after purchase date if provided
- */
 export const createCompraSchema = compraBaseSchema
   .extend({
-    detalles: z
-      .array(compraDetalleSchema)
-      .min(1, "Debe incluir al menos un material"),
+    detalles: z.array(compraDetalleSchema).optional().default([]),
   })
   .refine(
     (data) => {
-      // Validate that fecha_recepcion_estimada is after fecha_pedido if provided
       if (!data.fecha_recepcion_estimada) return true;
       return (
         new Date(data.fecha_recepcion_estimada) >= new Date(data.fecha_pedido)
@@ -87,52 +85,49 @@ export const createCompraSchema = compraBaseSchema
     }
   );
 
-// ==================== Update Schema ====================
+export const updateCompraSchema = compraBaseSchema
+  .partial()
+  .extend({
+    detalles: z.array(compraDetalleSchema).optional(),
+  })
+  .refine(
+    (data) => {
+      if (!data.fecha_pedido || !data.fecha_recepcion_estimada) {
+        return true;
+      }
 
-/**
- * Schema for updating an existing compra
- * All fields are optional (partial update support)
- */
-export const updateCompraSchema = compraBaseSchema.partial();
+      return (
+        new Date(data.fecha_recepcion_estimada) >= new Date(data.fecha_pedido)
+      );
+    },
+    {
+      message:
+        "La fecha de recepción estimada debe ser igual o posterior a la fecha de pedido",
+      path: ["fecha_recepcion_estimada"],
+    }
+  );
 
-// ==================== Query Schemas ====================
-
-/**
- * Schema for filtering compras
- */
 export const filterCompraSchema = z.object({
-  numero_compra: z.string().optional(),
   proveedor_id: z.coerce.number().int().positive().optional(),
   estado: compraEstadoEnum.optional(),
   fecha_desde: z.coerce.date().optional(),
   fecha_hasta: z.coerce.date().optional(),
-  fecha_entrega_desde: z.coerce.date().optional(),
-  fecha_entrega_hasta: z.coerce.date().optional(),
-  total_min: z.coerce.number().positive().optional(),
-  total_max: z.coerce.number().positive().optional(),
   search: z.string().optional(),
 });
 
-/**
- * Schema for compra ID parameter
- */
 export const compraIdSchema = z.object({
   id: z.coerce.number().int().positive("ID de compra inválido"),
 });
 
-// ==================== Business Logic Validation ====================
-
-/**
- * Validate that compra can be marked as received
- */
 export const validateCompraCanReceive = (estado: string) => {
+  const normalized = normalizeCompraEstado(estado);
   const errors: string[] = [];
 
-  if (estado === "recibida") {
+  if (normalized === "recibida") {
     errors.push("La compra ya fue recibida");
   }
 
-  if (estado === "cancelada") {
+  if (normalized === "cancelada") {
     errors.push("No se puede recibir una compra cancelada");
   }
 
@@ -142,17 +137,15 @@ export const validateCompraCanReceive = (estado: string) => {
   };
 };
 
-/**
- * Validate that compra can be cancelled
- */
 export const validateCompraCanCancel = (estado: string) => {
+  const normalized = normalizeCompraEstado(estado);
   const errors: string[] = [];
 
-  if (estado === "recibida") {
+  if (normalized === "recibida") {
     errors.push("No se puede cancelar una compra ya recibida");
   }
 
-  if (estado === "cancelada") {
+  if (normalized === "cancelada") {
     errors.push("La compra ya está cancelada");
   }
 
@@ -162,9 +155,6 @@ export const validateCompraCanCancel = (estado: string) => {
   };
 };
 
-/**
- * Validate delivery timeline
- */
 export const validateCompraDelivery = (
   fechaCompra: Date,
   fechaEntregaEstimada: Date
@@ -196,8 +186,6 @@ export const validateCompraDelivery = (
     warnings,
   };
 };
-
-// ==================== Types ====================
 
 export type CompraCreate = z.infer<typeof createCompraSchema>;
 export type CompraUpdate = z.infer<typeof updateCompraSchema>;

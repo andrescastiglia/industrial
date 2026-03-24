@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
+import { AUTH_COOKIE_NAME } from "@/lib/business-constants";
 
 export default async function HomePage() {
-  // Check if user is authenticated via middleware header
-  const headersList = headers();
-  const userId = headersList.get("x-user-id");
+  const cookieStore = await cookies();
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
-  if (userId) {
+  if (token) {
     redirect("/dashboard");
   } else {
     redirect("/login");

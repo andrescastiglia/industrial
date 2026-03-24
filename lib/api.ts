@@ -1,9 +1,10 @@
-import { RequestInit } from "next/dist/server/web/spec-extension/request";
 import { Dashboard } from "./dashboard";
 import {
   Cliente,
   Compra,
   ComponenteProducto,
+  DetalleCompraMateriaPrima,
+  DetalleOrdenVenta,
   MateriaPrima,
   Operario,
   OrdenProduccion,
@@ -13,11 +14,40 @@ import {
   TipoComponente,
 } from "./database";
 
+type VentaPayload = Partial<Omit<OrdenVenta, "detalle">> & {
+  detalles?: Array<Partial<DetalleOrdenVenta>>;
+};
+
+type CompraPayload = Partial<Compra> & {
+  detalles?: Array<Partial<DetalleCompraMateriaPrima>>;
+};
+
+type ApiEnvelope<T> = {
+  data: T;
+  message?: string;
+  success?: boolean;
+};
+
 // Cliente API para hacer llamadas al backend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 class ApiClient {
-  private async postRequest<T>(endpoint: string, data: T): Promise<T> {
+  private unwrapPayload<T>(payload: T | ApiEnvelope<T>): T {
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "data" in (payload as ApiEnvelope<T>)
+    ) {
+      return (payload as ApiEnvelope<T>).data;
+    }
+
+    return payload as T;
+  }
+
+  private async postRequest<TResponse, TPayload = unknown>(
+    endpoint: string,
+    data: TPayload
+  ): Promise<TResponse> {
     const url = `${API_BASE_URL}/api${endpoint}`;
     const response = await fetch(url, {
       method: "POST",
@@ -33,7 +63,10 @@ class ApiClient {
     return await response.json();
   }
 
-  private async putRequest<T>(endpoint: string, data: T): Promise<T> {
+  private async putRequest<TResponse, TPayload = unknown>(
+    endpoint: string,
+    data: TPayload
+  ): Promise<TResponse> {
     const url = `${API_BASE_URL}/api${endpoint}`;
     const response = await fetch(url, {
       method: "PUT",
@@ -178,7 +211,11 @@ class ApiClient {
   }
 
   async createCliente(data: Cliente): Promise<Cliente> {
-    return this.postRequest<Cliente>("/clientes", data);
+    const payload = await this.postRequest<Cliente | ApiEnvelope<Cliente>, Cliente>(
+      "/clientes",
+      data
+    );
+    return this.unwrapPayload(payload);
   }
 
   async updateCliente(id: number, data: Cliente): Promise<Cliente> {
@@ -236,8 +273,16 @@ class ApiClient {
     return this.getRequest<OrdenVenta[]>("/ventas");
   }
 
-  async createVenta(data: OrdenVenta): Promise<OrdenVenta> {
-    return this.postRequest<OrdenVenta>("/ventas", data);
+  async getVentaById(id: number): Promise<OrdenVenta> {
+    return this.getRequest<OrdenVenta>(`/ventas/${id}`);
+  }
+
+  async createVenta(data: VentaPayload): Promise<OrdenVenta> {
+    return this.postRequest<OrdenVenta, VentaPayload>("/ventas", data);
+  }
+
+  async updateVenta(id: number, data: VentaPayload): Promise<OrdenVenta> {
+    return this.putRequest<OrdenVenta, VentaPayload>(`/ventas/${id}`, data);
   }
 
   async deleteVenta(id: number): Promise<boolean> {
@@ -249,8 +294,12 @@ class ApiClient {
     return this.getRequest<Compra[]>("/compras");
   }
 
-  async createCompra(data: Compra): Promise<Compra> {
-    return this.postRequest<Compra>("/compras", data);
+  async getCompraById(id: number): Promise<Compra> {
+    return this.getRequest<Compra>(`/compras/${id}`);
+  }
+
+  async createCompra(data: CompraPayload): Promise<Compra> {
+    return this.postRequest<Compra, CompraPayload>("/compras", data);
   }
 
   // Tipos de Componente
@@ -261,8 +310,8 @@ class ApiClient {
   async createTipoComponente(data: TipoComponente): Promise<TipoComponente> {
     return this.postRequest<TipoComponente>("/tipo-componente", data);
   }
-  async updateCompra(id: number, data: Compra): Promise<Compra> {
-    return this.putRequest<Compra>(`/compras/${id}`, data);
+  async updateCompra(id: number, data: CompraPayload): Promise<Compra> {
+    return this.putRequest<Compra, CompraPayload>(`/compras/${id}`, data);
   }
 
   async deleteCompra(id: number): Promise<boolean> {

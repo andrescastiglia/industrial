@@ -10,10 +10,13 @@ import {
 
 export const dynamic = "force-dynamic";
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
+  const params = await context.params;
   try {
     // Autenticar usuario
     const auth = authenticateApiRequest(request);
@@ -94,8 +97,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
+  const params = await context.params;
   try {
     // Autenticar usuario
     const auth = authenticateApiRequest(request);
@@ -208,8 +212,9 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
+  const params = await context.params;
   try {
     // Autenticar usuario
     const auth = authenticateApiRequest(request);

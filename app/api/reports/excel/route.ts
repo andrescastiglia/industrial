@@ -16,6 +16,11 @@ import {
   generateInventoryExcel,
   generateCostsExcel,
 } from "@/lib/reports/excel-generator";
+import {
+  getCompraEstadoLabel,
+  getOrdenProduccionEstadoLabel,
+  getVentaEstadoLabel,
+} from "@/lib/business-constants";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -114,7 +119,10 @@ export async function GET(request: NextRequest) {
 
           excelBuffer = await generateProductionExcel({
             period,
-            orders: ordersResult.rows,
+            orders: ordersResult.rows.map((row: any) => ({
+              ...row,
+              estado: getOrdenProduccionEstadoLabel(row.estado),
+            })),
             summary: {
               totalOrders,
               totalUnits,
@@ -129,9 +137,9 @@ export async function GET(request: NextRequest) {
         case "sales": {
           const salesResult = await client.query(
             `SELECT 
-              v.id,
+              v.orden_venta_id as id,
               c.nombre as cliente,
-              v.total as monto,
+              v.total_venta as monto,
               v.estado,
               v.fecha_pedido as fecha
             FROM Ordenes_Venta v
@@ -170,7 +178,10 @@ export async function GET(request: NextRequest) {
 
           excelBuffer = await generateSalesExcel({
             period,
-            sales: salesResult.rows,
+            sales: salesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getVentaEstadoLabel(row.estado),
+            })),
             summary: {
               totalSales,
               salesCount,
@@ -265,7 +276,10 @@ export async function GET(request: NextRequest) {
 
           excelBuffer = await generateCostsExcel({
             period,
-            purchases: purchasesResult.rows,
+            purchases: purchasesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getCompraEstadoLabel(row.estado),
+            })),
             summary: {
               totalPurchases,
               purchasesCount,

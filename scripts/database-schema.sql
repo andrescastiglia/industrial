@@ -19,9 +19,9 @@ CREATE INDEX idx_usuarios_role ON usuarios(role);
 CREATE INDEX idx_usuarios_active ON usuarios(is_active);
 
 COMMENT ON TABLE usuarios IS 'Usuarios del sistema con autenticación JWT';
-COMMENT ON COLUMN users.password_hash IS 'Hash bcrypt del password (salt rounds: 10)';
-COMMENT ON COLUMN users.role IS 'Rol RBAC: admin (acceso completo), gerente (gestión), operario (operaciones)';
-COMMENT ON COLUMN users.is_active IS 'Indica si el usuario está activo o deshabilitado';
+COMMENT ON COLUMN usuarios.password_hash IS 'Hash bcrypt del password (salt rounds: 10)';
+COMMENT ON COLUMN usuarios.role IS 'Rol RBAC: admin (acceso completo), gerente (gestión), operario (operaciones)';
+COMMENT ON COLUMN usuarios.is_active IS 'Indica si el usuario está activo o deshabilitado';
 
 -- Tabla para los Tipos de Componente (categorías de Materia Prima)
 -- Permite clasificar la materia prima como perfiles, superficies, juntas, accesorios, etc.

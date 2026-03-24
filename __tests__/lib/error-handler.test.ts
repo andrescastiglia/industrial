@@ -29,6 +29,14 @@ import {
   assertBusinessRule,
 } from "@/lib/error-handler";
 
+const setNodeEnv = (value: string | undefined) => {
+  Object.defineProperty(process.env, "NODE_ENV", {
+    value,
+    configurable: true,
+    writable: true,
+  });
+};
+
 describe("Error Handler", () => {
   describe("ApiError (base class)", () => {
     it("should create ApiError with all properties", () => {
@@ -72,26 +80,26 @@ describe("Error Handler", () => {
 
     it("should include stack trace in development", () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "development";
+      setNodeEnv("development");
 
       const error = new ApiError(ERROR_CODES.SYS_001, "Test");
       const json = error.toJSON();
 
       expect(json.stack).toBeDefined();
 
-      process.env.NODE_ENV = originalEnv;
+      setNodeEnv(originalEnv);
     });
 
     it("should not include stack trace in production", () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
+      setNodeEnv("production");
 
       const error = new ApiError(ERROR_CODES.SYS_001, "Test");
       const json = error.toJSON();
 
       expect(json.stack).toBeUndefined();
 
-      process.env.NODE_ENV = originalEnv;
+      setNodeEnv(originalEnv);
     });
   });
 
@@ -248,7 +256,7 @@ describe("Error Handler", () => {
 
     it("should hide error details in production", () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
+      setNodeEnv("production");
 
       const error = new Error("Internal error");
       const response = createErrorResponse(error);
@@ -256,12 +264,12 @@ describe("Error Handler", () => {
       expect(response.error.message).toBe("Error interno del servidor");
       expect(response.error.details).toBeUndefined();
 
-      process.env.NODE_ENV = originalEnv;
+      setNodeEnv(originalEnv);
     });
 
     it("should show error details in development", () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "development";
+      setNodeEnv("development");
 
       const error = new Error("Internal error");
       const response = createErrorResponse(error);
@@ -269,7 +277,7 @@ describe("Error Handler", () => {
       expect(response.error.message).toBe("Internal error");
       expect(response.error.details).toBeDefined();
 
-      process.env.NODE_ENV = originalEnv;
+      setNodeEnv(originalEnv);
     });
   });
 
@@ -398,7 +406,7 @@ describe("Error Handler", () => {
 
     it("should include original error in development", () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "development";
+      setNodeEnv("development");
 
       const pgError = {
         code: "TEST",
@@ -410,7 +418,7 @@ describe("Error Handler", () => {
       expect(error.message).toContain("Test error");
       expect(error.details).toBeDefined();
 
-      process.env.NODE_ENV = originalEnv;
+      setNodeEnv(originalEnv);
     });
   });
 

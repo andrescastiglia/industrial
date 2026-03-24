@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       ),
       client.query("SELECT NOW() - MAX(fecha_pedido) AS tiempo FROM Compras"),
       client.query(
-        "SELECT nombre, unidad_medida, stock_actual AS count FROM Materia_Prima WHERE stock_actual <= punto_pedido"
+        "SELECT nombre, unidad_medida, stock_actual FROM Materia_Prima WHERE stock_actual <= punto_pedido"
       ),
       client.query(
         `SELECT c.nombre AS cliente_nombre

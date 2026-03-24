@@ -90,7 +90,7 @@ export const percentageSchema = z
  * Date validation (ISO 8601 format or Date object)
  */
 export const dateSchema = z.coerce.date({
-  errorMap: () => ({ message: "Formato de fecha inválido" }),
+  error: "Formato de fecha inválido",
 });
 
 /**
@@ -169,15 +169,19 @@ export const colorHexSchema = z
 /**
  * Common status enum
  */
-export const statusEnum = z.enum(["activo", "inactivo"], {
-  errorMap: () => ({ message: "Estado inválido" }),
+const STATUS_VALUES = ["activo", "inactivo"] as const;
+
+export const statusEnum = z.enum(STATUS_VALUES, {
+  message: "Estado inválido",
 });
 
 /**
  * Priority enum
  */
-export const priorityEnum = z.enum(["baja", "media", "alta", "urgente"], {
-  errorMap: () => ({ message: "Prioridad inválida" }),
+const PRIORITY_VALUES = ["baja", "media", "alta", "urgente"] as const;
+
+export const priorityEnum = z.enum(PRIORITY_VALUES, {
+  message: "Prioridad inválida",
 });
 
 // ==================== Sanitization ====================

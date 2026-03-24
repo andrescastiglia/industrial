@@ -11,6 +11,8 @@ const config: Linter.Config[] = [
       "build/**",
       "dist/**",
       "coverage/**",
+      "playwright-report/**",
+      "test-results/**",
       "**/*.config.js",
       "**/*.config.mjs",
     ],

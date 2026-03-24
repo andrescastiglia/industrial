@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,7 +14,6 @@ import { Alert } from "@/components/ui/alert";
 import { Building2 } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -69,18 +67,7 @@ export default function LoginPage() {
       localStorage.setItem("refreshToken", data.refreshToken);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // CRÍTICO: El servidor establece la cookie en Set-Cookie header
-      // Pero para navegaciones client-side (router.push), necesitamos
-      // establecerla también desde el cliente para que esté disponible
-      // inmediatamente en la siguiente petición
-
-      document.cookie = `token=${data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-
-      // Esperar a que la cookie se establezca
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      // Usar window.location para forzar una navegación completa del servidor
-      // Esto asegura que el middleware vea la cookie
+      // Forzar navegación completa para que el middleware lea la cookie httpOnly
       window.location.href = "/dashboard";
     } catch (err) {
       console.error("Login error:", err);

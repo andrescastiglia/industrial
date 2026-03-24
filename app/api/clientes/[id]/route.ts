@@ -26,10 +26,13 @@ import { apiLogger, startTimer } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
+  const params = await context.params;
   const timer = startTimer(`GET /api/clientes/${params.id}`, apiLogger);
 
   return handleApiError(async () => {
@@ -119,8 +122,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
+  const params = await context.params;
   const timer = startTimer(`PUT /api/clientes/${params.id}`, apiLogger);
 
   return handleApiError(async () => {
@@ -293,8 +297,9 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
+  const params = await context.params;
   const timer = startTimer(`DELETE /api/clientes/${params.id}`, apiLogger);
 
   return handleApiError(async () => {

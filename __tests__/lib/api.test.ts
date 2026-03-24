@@ -135,6 +135,18 @@ describe("api.ts - ApiClient", () => {
       );
     });
 
+    it("should unwrap cliente responses returned inside data", async () => {
+      mockSuccessResponse({
+        success: true,
+        data: mockCliente,
+        message: "Cliente creado exitosamente",
+      });
+
+      const result = await apiClient.createCliente(mockCliente);
+
+      expect(result).toEqual(mockCliente);
+    });
+
     it("should update existing cliente", async () => {
       mockSuccessResponse(mockCliente);
 
@@ -469,6 +481,33 @@ describe("api.ts - ApiClient", () => {
       expect(result).toEqual(mockVenta);
     });
 
+    it("should get venta by id", async () => {
+      mockSuccessResponse(mockVenta);
+
+      const result = await apiClient.getVentaById(1);
+
+      expect(result).toEqual(mockVenta);
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/ventas/1",
+        expect.any(Object)
+      );
+    });
+
+    it("should update venta", async () => {
+      mockSuccessResponse(mockVenta);
+
+      const result = await apiClient.updateVenta(1, mockVenta);
+
+      expect(result).toEqual(mockVenta);
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/ventas/1",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify(mockVenta),
+        })
+      );
+    });
+
     it("should delete venta", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
 
@@ -503,6 +542,18 @@ describe("api.ts - ApiClient", () => {
       const result = await apiClient.createCompra(mockCompra);
 
       expect(result).toEqual(mockCompra);
+    });
+
+    it("should get compra by id", async () => {
+      mockSuccessResponse(mockCompra);
+
+      const result = await apiClient.getCompraById(1);
+
+      expect(result).toEqual(mockCompra);
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/compras/1",
+        expect.any(Object)
+      );
     });
 
     it("should update compra", async () => {

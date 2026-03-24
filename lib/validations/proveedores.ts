@@ -1,126 +1,62 @@
 /**
- * Proveedor validation schemas
- * Comprehensive validation for supplier data
+ * Proveedor validation schemas aligned with scripts/database-schema.sql
  */
 
 import { z } from "zod";
 import {
   emailSchema,
   phoneSchema,
-  phoneOptionalSchema,
-  nitSchema,
   shortTextSchema,
   mediumTextSchema,
-  statusEnum,
-  urlSchema,
 } from "./common";
 
-// ==================== Base Schema ====================
-
 export const proveedorBaseSchema = z.object({
-  nombre: shortTextSchema.max(150, "Máximo 150 caracteres"),
-
-  email: emailSchema,
-
-  telefono: phoneSchema,
-
-  direccion: mediumTextSchema,
-
-  nit: nitSchema,
-
+  nombre: shortTextSchema.max(255, "Máximo 255 caracteres"),
   contacto: shortTextSchema
-    .max(150, "Máximo 150 caracteres")
+    .max(255, "Máximo 255 caracteres")
     .optional()
     .or(z.literal("")),
-
-  telefono_contacto: phoneOptionalSchema,
-
-  email_contacto: z
+  direccion: mediumTextSchema.optional().or(z.literal("")),
+  telefono: phoneSchema.optional().or(z.literal("")),
+  email: emailSchema.optional().or(z.literal("")),
+  cuit: z
     .string()
-    .email("Email inválido")
-    .optional()
-    .or(z.literal("")),
-
-  sitio_web: urlSchema,
-
-  notas: z
-    .string()
-    .max(1000, "Máximo 1000 caracteres")
+    .max(50, "Máximo 50 caracteres")
     .trim()
     .optional()
     .or(z.literal("")),
-
-  calificacion: z
-    .number()
-    .int()
-    .min(1)
-    .max(5, "Calificación debe estar entre 1 y 5")
-    .optional()
-    .nullable(),
-
-  estado: statusEnum.default("activo"),
 });
 
-// ==================== Create Schema ====================
-
-/**
- * Schema for creating a new proveedor
- * All required fields must be present
- */
 export const createProveedorSchema = proveedorBaseSchema;
-
-// ==================== Update Schema ====================
-
-/**
- * Schema for updating an existing proveedor
- * All fields are optional (partial update support)
- */
 export const updateProveedorSchema = proveedorBaseSchema.partial();
 
-// ==================== Query Schemas ====================
-
-/**
- * Schema for filtering proveedores
- */
 export const filterProveedorSchema = z.object({
   nombre: z.string().optional(),
   email: z.string().optional(),
-  estado: statusEnum.optional(),
-  calificacion: z.coerce.number().int().min(1).max(5).optional(),
+  cuit: z.string().optional(),
   search: z.string().optional(),
 });
 
-/**
- * Schema for proveedor ID parameter
- */
 export const proveedorIdSchema = z.object({
   id: z.coerce.number().int().positive("ID de proveedor inválido"),
 });
 
-// ==================== Business Logic Validation ====================
+export const validateProveedorIdentity = (nombre: string, cuit?: string) => {
+  const errors: string[] = [];
 
-/**
- * Validate that proveedor has good rating for important orders
- */
-export const validateProveedorRating = (calificacion?: number | null) => {
-  const warnings: string[] = [];
+  if (!nombre.trim()) {
+    errors.push("Nombre de proveedor requerido");
+  }
 
-  if (!calificacion) {
-    warnings.push("Proveedor sin calificación. Considere evaluar su desempeño");
-  } else if (calificacion < 3) {
-    warnings.push(
-      `Proveedor con calificación baja (${calificacion}/5). Revisar historial`
-    );
+  if (cuit && cuit.trim().length < 8) {
+    errors.push("CUIT demasiado corto");
   }
 
   return {
-    valid: true,
-    errors: [],
-    warnings,
+    valid: errors.length === 0,
+    errors,
   };
 };
-
-// ==================== Types ====================
 
 export type ProveedorCreate = z.infer<typeof createProveedorSchema>;
 export type ProveedorUpdate = z.infer<typeof updateProveedorSchema>;

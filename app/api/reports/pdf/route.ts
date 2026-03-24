@@ -19,6 +19,11 @@ import {
   generateInventoryReport,
   generateCostsReport,
 } from "@/lib/reports/pdf-generator";
+import {
+  getCompraEstadoLabel,
+  getOrdenProduccionEstadoLabel,
+  getVentaEstadoLabel,
+} from "@/lib/business-constants";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 import { es } from "date-fns/locale";
@@ -123,7 +128,10 @@ export async function GET(request: NextRequest) {
 
           pdfBlob = await generateProductionReport({
             period,
-            orders: ordersResult.rows,
+            orders: ordersResult.rows.map((row: any) => ({
+              ...row,
+              estado: getOrdenProduccionEstadoLabel(row.estado),
+            })),
             summary: {
               totalOrders,
               totalUnits,
@@ -181,7 +189,10 @@ export async function GET(request: NextRequest) {
 
           pdfBlob = await generateSalesReport({
             period,
-            sales: salesResult.rows,
+            sales: salesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getVentaEstadoLabel(row.estado),
+            })),
             summary: {
               totalSales,
               salesCount,
@@ -279,7 +290,10 @@ export async function GET(request: NextRequest) {
 
           pdfBlob = await generateCostsReport({
             period,
-            purchases: purchasesResult.rows,
+            purchases: purchasesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getCompraEstadoLabel(row.estado),
+            })),
             summary: {
               totalPurchases,
               purchasesCount,

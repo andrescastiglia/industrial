@@ -6,6 +6,7 @@ import {
   type JWTPayload,
   type UserRole,
 } from "./auth";
+import { AUTH_COOKIE_NAME } from "./business-constants";
 import { hasPermission, type Permission } from "./permissions";
 
 /**
@@ -40,7 +41,7 @@ export function authenticateApiRequest(
 
     // Si no hay token en el header, intentar obtenerlo de la cookie
     if (!token) {
-      token = request.cookies.get("token")?.value || null;
+      token = request.cookies.get(AUTH_COOKIE_NAME)?.value || null;
     }
 
     if (!token) {

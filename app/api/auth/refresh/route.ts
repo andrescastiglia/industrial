@@ -4,6 +4,10 @@ import {
   generateAccessToken,
   AUTH_ERRORS,
 } from "@/lib/auth";
+import {
+  AUTH_COOKIE_NAME,
+  AUTH_COOKIE_MAX_AGE_SECONDS,
+} from "@/lib/business-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +44,20 @@ export async function POST(request: NextRequest) {
       role: decoded.role,
     });
 
-    return NextResponse.json({ accessToken: newAccessToken }, { status: 200 });
+    const response = NextResponse.json(
+      { accessToken: newAccessToken },
+      { status: 200 }
+    );
+
+    response.cookies.set(AUTH_COOKIE_NAME, newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: AUTH_COOKIE_MAX_AGE_SECONDS,
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("[AUTH] Error en refresh:", error);
     return NextResponse.json(

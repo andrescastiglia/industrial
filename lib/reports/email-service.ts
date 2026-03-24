@@ -3,6 +3,8 @@
  * Utiliza Nodemailer para enviar reportes automáticos
  */
 
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import nodemailer, { Transporter } from "nodemailer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -50,11 +52,82 @@ export class EmailService {
     this.initializeTransporter();
   }
 
+  private getCaptureDirectory(): string | null {
+    return process.env.EMAIL_CAPTURE_DIR || null;
+  }
+
+  private isCaptureModeEnabled(): boolean {
+    return Boolean(this.getCaptureDirectory());
+  }
+
+  private async normalizeAttachmentContent(content: Buffer | Blob) {
+    if (content instanceof Blob) {
+      return Buffer.from(await content.arrayBuffer());
+    }
+
+    return content;
+  }
+
+  private async captureEmail(options: EmailOptions): Promise<boolean> {
+    const captureDirectory = this.getCaptureDirectory();
+    if (!captureDirectory) {
+      return false;
+    }
+
+    const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const messageDirectory = path.join(captureDirectory, messageId);
+
+    await mkdir(messageDirectory, { recursive: true });
+
+    const attachments = await Promise.all(
+      (options.attachments || []).map(async (attachment) => {
+        const content = await this.normalizeAttachmentContent(
+          attachment.content
+        );
+        const filePath = path.join(messageDirectory, attachment.filename);
+
+        await writeFile(filePath, content);
+
+        return {
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          size: content.length,
+        };
+      })
+    );
+
+    const manifest = {
+      id: messageId,
+      to: Array.isArray(options.to) ? options.to : [options.to],
+      subject: options.subject,
+      html: options.html,
+      text: options.text || null,
+      attachments,
+    };
+
+    await writeFile(
+      path.join(messageDirectory, "message.json"),
+      JSON.stringify(manifest, null, 2)
+    );
+
+    apiLogger.info("Email capturado en disco para testing", {
+      messageId,
+      recipients: manifest.to,
+    });
+
+    return true;
+  }
+
   /**
    * Inicializa el transporter de nodemailer
    */
   private initializeTransporter(): void {
     try {
+      if (this.isCaptureModeEnabled()) {
+        apiLogger.info("Email capture mode enabled");
+        return;
+      }
+
       // Configuración desde variables de entorno
       const config: EmailConfig = {
         host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -89,6 +162,10 @@ export class EmailService {
    * Verifica la conexión con el servidor SMTP
    */
   async verifyConnection(): Promise<boolean> {
+    if (this.isCaptureModeEnabled()) {
+      return true;
+    }
+
     if (!this.transporter) {
       return false;
     }
@@ -109,6 +186,10 @@ export class EmailService {
    * Envía un email
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
+    if (this.isCaptureModeEnabled()) {
+      return this.captureEmail(options);
+    }
+
     if (!this.transporter) {
       apiLogger.error("Email service not initialized");
       return false;
@@ -120,14 +201,15 @@ export class EmailService {
         : options.to;
 
       // Convertir Blob a Buffer si es necesario
-      const attachments = options.attachments?.map((att) => ({
-        filename: att.filename,
-        content:
-          att.content instanceof Blob
-            ? Buffer.from(att.content as any)
-            : att.content,
-        contentType: att.contentType,
-      }));
+      const attachments = options.attachments
+        ? await Promise.all(
+            options.attachments.map(async (att) => ({
+              filename: att.filename,
+              content: await this.normalizeAttachmentContent(att.content),
+              contentType: att.contentType,
+            }))
+          )
+        : undefined;
 
       const info = await this.transporter.sendMail({
         from: `"Sistema Industrial" <${this.config?.auth.user}>`,
@@ -320,6 +402,156 @@ export class EmailService {
         },
         {
           filename: "Reporte_Ventas.xlsx",
+          content: excelBuffer,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
+    });
+  }
+
+  async sendInventoryReport(
+    recipients: string[],
+    pdfBuffer: Buffer,
+    excelBuffer: Buffer,
+    summary: {
+      totalItems: number;
+      lowStockItems: number;
+    }
+  ): Promise<boolean> {
+    const today = format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #0f766e; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background: #f5f5f5; }
+            .kpi { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #0f766e; }
+            .kpi-label { font-size: 12px; color: #666; }
+            .kpi-value { font-size: 24px; font-weight: bold; color: #0f766e; }
+            .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Reporte de Inventario</h1>
+              <p>${today}</p>
+            </div>
+            <div class="content">
+              <p>Adjunto encontrará el estado consolidado del inventario del sistema.</p>
+              <div class="kpi">
+                <div class="kpi-label">Items inventariados</div>
+                <div class="kpi-value">${summary.totalItems}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Items bajo stock</div>
+                <div class="kpi-value">${summary.lowStockItems}</div>
+              </div>
+            </div>
+            <div class="footer">
+              <p>Este es un mensaje automático generado por el Sistema Industrial.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: recipients,
+      subject: `Reporte de Inventario - ${today}`,
+      html,
+      attachments: [
+        {
+          filename: "Reporte_Inventario.pdf",
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+        {
+          filename: "Reporte_Inventario.xlsx",
+          content: excelBuffer,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
+    });
+  }
+
+  async sendCostsReport(
+    recipients: string[],
+    pdfBuffer: Buffer,
+    excelBuffer: Buffer,
+    summary: {
+      totalPurchases: number;
+      purchasesCount: number;
+      averagePurchase: number;
+      purchasesTrend: number;
+    }
+  ): Promise<boolean> {
+    const today = format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #b45309; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background: #f5f5f5; }
+            .kpi { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #b45309; }
+            .kpi-label { font-size: 12px; color: #666; }
+            .kpi-value { font-size: 24px; font-weight: bold; color: #b45309; }
+            .trend { font-size: 12px; color: #666; }
+            .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Reporte de Costos</h1>
+              <p>${today}</p>
+            </div>
+            <div class="content">
+              <p>Adjunto encontrará el consolidado de compras y costos del período.</p>
+              <div class="kpi">
+                <div class="kpi-label">Compras totales</div>
+                <div class="kpi-value">$${new Intl.NumberFormat("es-CO").format(summary.totalPurchases)}</div>
+                <div class="trend">${summary.purchasesTrend > 0 ? "+" : ""}${summary.purchasesTrend}% vs periodo anterior</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Cantidad de compras</div>
+                <div class="kpi-value">${summary.purchasesCount}</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Compra promedio</div>
+                <div class="kpi-value">$${new Intl.NumberFormat("es-CO").format(summary.averagePurchase)}</div>
+              </div>
+            </div>
+            <div class="footer">
+              <p>Este es un mensaje automático generado por el Sistema Industrial.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: recipients,
+      subject: `Reporte de Costos - ${today}`,
+      html,
+      attachments: [
+        {
+          filename: "Reporte_Costos.pdf",
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+        {
+          filename: "Reporte_Costos.xlsx",
           content: excelBuffer,
           contentType:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

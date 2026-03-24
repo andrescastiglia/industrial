@@ -15,10 +15,12 @@ export const dynamic = "force-dynamic";
  * Crea un nuevo usuario en el sistema (solo admins)
  */
 export async function POST(request: NextRequest) {
+  let auth: ReturnType<typeof authenticateApiRequest> | undefined;
+
   return withTrace("POST /api/auth/register", async (span) => {
     try {
       // Autenticar request
-      const auth = authenticateApiRequest(request);
+      auth = authenticateApiRequest(request);
 
       if (auth.user) {
         span?.setAttribute("admin.user_id", auth.user.userId);

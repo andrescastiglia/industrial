@@ -1,185 +1,82 @@
 /**
- * Producto validation schemas
- * Comprehensive validation for finished product data
+ * Producto validation schemas aligned with scripts/database-schema.sql
  */
 
 import { z } from "zod";
 import {
-  nonEmptyStringSchema,
   shortTextSchema,
   mediumTextSchema,
   positiveDecimalSchema,
-  nonNegativeDecimalSchema,
-  statusEnum,
-  urlSchema,
+  positiveIntSchema,
 } from "./common";
 
-// ==================== Base Schema ====================
-
-export const productoBaseSchema = z.object({
-  codigo: shortTextSchema
+export const componenteProductoSchema = z.object({
+  materia_prima_id: positiveIntSchema,
+  cantidad_necesaria: positiveDecimalSchema.max(
+    999999999.99,
+    "Cantidad demasiado alta"
+  ),
+  angulo_corte: z
+    .string()
     .max(50, "Máximo 50 caracteres")
-    .regex(
-      /^[A-Z0-9-_]+$/,
-      "Solo letras mayúsculas, números, guiones y guiones bajos"
-    ),
-
-  nombre: shortTextSchema.max(200, "Máximo 200 caracteres"),
-
-  descripcion: mediumTextSchema.optional().or(z.literal("")),
-
-  precio_venta: positiveDecimalSchema.max(
-    999999999.99,
-    "Precio demasiado alto"
-  ),
-
-  precio_costo: nonNegativeDecimalSchema.max(
-    999999999.99,
-    "Costo demasiado alto"
-  ),
-
-  stock_actual: z
-    .number()
-    .int("Debe ser un número entero")
-    .nonnegative("No puede ser negativo")
-    .default(0),
-
-  stock_minimo: z
-    .number()
-    .int("Debe ser un número entero")
-    .nonnegative("No puede ser negativo")
-    .default(0),
-
-  unidad_medida: z
-    .enum(
-      ["unidad", "kg", "litro", "metro", "metro_cuadrado", "metro_cubico"],
-      {
-        message: "Unidad de medida inválida",
-      }
-    )
-    .default("unidad"),
-
-  tiempo_produccion: z
-    .number()
-    .int("Debe ser un número entero")
-    .positive("Debe ser mayor a 0")
-    .max(9999, "Tiempo de producción demasiado alto")
-    .describe("Tiempo en minutos"),
-
-  imagen_url: urlSchema,
-
-  categoria: shortTextSchema
-    .max(100, "Máximo 100 caracteres")
+    .trim()
     .optional()
+    .nullable()
     .or(z.literal("")),
-
-  estado: statusEnum.default("activo"),
 });
 
-// ==================== Create Schema ====================
+export const productoBaseSchema = z.object({
+  nombre_modelo: shortTextSchema.max(100, "Máximo 100 caracteres"),
+  descripcion: mediumTextSchema.optional().or(z.literal("")),
+  ancho: positiveDecimalSchema.max(999999.99, "Ancho demasiado alto"),
+  alto: positiveDecimalSchema.max(999999.99, "Alto demasiado alto"),
+  color: z
+    .string()
+    .max(100, "Máximo 100 caracteres")
+    .trim()
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  tipo_accionamiento: z
+    .string()
+    .max(255, "Máximo 255 caracteres")
+    .trim()
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+});
 
-/**
- * Schema for creating a new producto
- * All required fields must be present
- */
-export const createProductoSchema = productoBaseSchema;
+export const createProductoSchema = productoBaseSchema.extend({
+  componentes: z.array(componenteProductoSchema).default([]),
+});
 
-// ==================== Update Schema ====================
+export const updateProductoSchema = productoBaseSchema.partial().extend({
+  componentes: z.array(componenteProductoSchema).optional(),
+});
 
-/**
- * Schema for updating an existing producto
- * All fields are optional (partial update support)
- */
-export const updateProductoSchema = productoBaseSchema.partial();
-
-// ==================== Query Schemas ====================
-
-/**
- * Schema for filtering productos
- */
 export const filterProductoSchema = z.object({
-  codigo: z.string().optional(),
-  nombre: z.string().optional(),
-  categoria: z.string().optional(),
-  estado: statusEnum.optional(),
-  stock_bajo: z.coerce.boolean().optional(), // Filter by low stock
+  nombre_modelo: z.string().optional(),
+  color: z.string().optional(),
   search: z.string().optional(),
 });
 
-/**
- * Schema for producto ID parameter
- */
 export const productoIdSchema = z.object({
   id: z.coerce.number().int().positive("ID de producto inválido"),
 });
 
-// ==================== Business Logic Validation ====================
-
-/**
- * Validate that producto pricing makes sense
- */
-export const validateProductoPricing = (
-  producto: z.infer<typeof productoBaseSchema>
-) => {
-  const errors: string[] = [];
-
-  if (producto.precio_venta <= producto.precio_costo) {
-    errors.push(
-      "El precio de venta debe ser mayor al costo para tener ganancia"
-    );
-  }
-
-  const margen =
-    ((producto.precio_venta - producto.precio_costo) / producto.precio_venta) *
-    100;
-  if (margen < 10) {
-    errors.push(
-      `Margen de ganancia muy bajo (${margen.toFixed(2)}%). Recomendado: al menos 10%`
-    );
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings:
-      margen < 20
-        ? ["Margen de ganancia bajo. Considere revisar precios."]
-        : [],
-  };
-};
-
-/**
- * Validate that stock is sufficient for production
- */
-export const validateProductoStock = (
-  stockActual: number,
-  stockMinimo: number
-) => {
-  const errors: string[] = [];
+export const validateProductoDimensions = (ancho: number, alto: number) => {
   const warnings: string[] = [];
 
-  if (stockActual < 0) {
-    errors.push("Stock no puede ser negativo");
-  }
-
-  if (stockActual < stockMinimo) {
-    warnings.push(
-      `Stock actual (${stockActual}) está por debajo del mínimo (${stockMinimo})`
-    );
-  }
-
-  if (stockActual === 0) {
-    warnings.push("Producto sin stock disponible");
+  if (ancho > 4000 || alto > 4000) {
+    warnings.push("Producto con dimensiones altas. Verificar factibilidad.");
   }
 
   return {
-    valid: errors.length === 0,
-    errors,
+    valid: true,
+    errors: [],
     warnings,
   };
 };
-
-// ==================== Types ====================
 
 export type ProductoCreate = z.infer<typeof createProductoSchema>;
 export type ProductoUpdate = z.infer<typeof updateProductoSchema>;

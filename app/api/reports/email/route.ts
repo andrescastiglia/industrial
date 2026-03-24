@@ -18,11 +18,20 @@ import { emailService } from "@/lib/reports/email-service";
 import {
   generateProductionReport,
   generateSalesReport,
+  generateInventoryReport,
+  generateCostsReport,
 } from "@/lib/reports/pdf-generator";
 import {
   generateProductionExcel,
   generateSalesExcel,
+  generateInventoryExcel,
+  generateCostsExcel,
 } from "@/lib/reports/excel-generator";
+import {
+  getCompraEstadoLabel,
+  getOrdenProduccionEstadoLabel,
+  getVentaEstadoLabel,
+} from "@/lib/business-constants";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 import { es } from "date-fns/locale";
@@ -30,7 +39,13 @@ import { es } from "date-fns/locale";
 export const dynamic = "force-dynamic";
 
 interface SendReportRequest {
-  type: "production" | "sales" | "executive-summary" | "critical-alert";
+  type:
+    | "production"
+    | "sales"
+    | "inventory"
+    | "costs"
+    | "executive-summary"
+    | "critical-alert";
   recipients: string[];
   period?: string;
   alertType?: string;
@@ -156,13 +171,19 @@ export async function POST(request: NextRequest) {
 
           const pdfBlob = await generateProductionReport({
             period,
-            orders: ordersResult.rows,
+            orders: ordersResult.rows.map((row: any) => ({
+              ...row,
+              estado: getOrdenProduccionEstadoLabel(row.estado),
+            })),
             summary,
           });
 
           const excelBuffer = await generateProductionExcel({
             period,
-            orders: ordersResult.rows,
+            orders: ordersResult.rows.map((row: any) => ({
+              ...row,
+              estado: getOrdenProduccionEstadoLabel(row.estado),
+            })),
             summary,
           });
 
@@ -195,9 +216,9 @@ export async function POST(request: NextRequest) {
         try {
           const salesResult = await client.query(
             `SELECT 
-              v.id,
+              v.orden_venta_id as id,
               c.nombre as cliente,
-              v.total as monto,
+              v.total_venta as monto,
               v.estado,
               v.fecha_pedido as fecha
             FROM Ordenes_Venta v
@@ -245,19 +266,187 @@ export async function POST(request: NextRequest) {
 
           const pdfBlob = await generateSalesReport({
             period,
-            sales: salesResult.rows,
+            sales: salesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getVentaEstadoLabel(row.estado),
+            })),
             summary,
           });
 
           const excelBuffer = await generateSalesExcel({
             period,
-            sales: salesResult.rows,
+            sales: salesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getVentaEstadoLabel(row.estado),
+            })),
             summary,
           });
 
           const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer());
 
           success = await emailService.sendSalesReport(
+            recipients,
+            pdfBuffer,
+            excelBuffer,
+            summary
+          );
+        } catch (error) {
+          throw error;
+        } finally {
+          client.release();
+        }
+        break;
+      }
+
+      case "inventory": {
+        const client = await pool.connect();
+
+        try {
+          const inventoryResult = await client.query(
+            `SELECT 
+              materia_prima_id as id,
+              referencia_proveedor as codigo,
+              nombre,
+              stock_actual as cantidad,
+              punto_pedido as minimo,
+              CASE 
+                WHEN stock_actual < punto_pedido THEN 'Bajo Stock'
+                WHEN stock_actual < punto_pedido * 1.5 THEN 'Alerta'
+                ELSE 'OK'
+              END as estado
+            FROM Materia_Prima
+            ORDER BY 
+              CASE 
+                WHEN stock_actual < punto_pedido THEN 1
+                WHEN stock_actual < punto_pedido * 1.5 THEN 2
+                ELSE 3
+              END,
+              nombre`
+          );
+
+          const summary = {
+            totalItems: inventoryResult.rows.length,
+            lowStockItems: inventoryResult.rows.filter(
+              (row: any) => row.estado === "Bajo Stock"
+            ).length,
+          };
+
+          const pdfBlob = await generateInventoryReport({
+            items: inventoryResult.rows,
+            summary: {
+              ...summary,
+              totalValue: 0,
+            },
+          });
+
+          const excelBuffer = await generateInventoryExcel({
+            items: inventoryResult.rows,
+            summary: {
+              ...summary,
+              totalValue: 0,
+            },
+          });
+
+          const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer());
+
+          success = await emailService.sendInventoryReport(
+            recipients,
+            pdfBuffer,
+            excelBuffer,
+            summary
+          );
+        } catch (error) {
+          throw error;
+        } finally {
+          client.release();
+        }
+        break;
+      }
+
+      case "costs": {
+        const periodDate = periodParam
+          ? new Date(periodParam + "-01")
+          : new Date();
+        const startDate = startOfMonth(periodDate);
+        const endDate = endOfMonth(periodDate);
+        const period = format(periodDate, "MMMM 'de' yyyy", { locale: es });
+
+        const client = await pool.connect();
+
+        try {
+          const purchasesResult = await client.query(
+            `SELECT 
+              c.compra_id as id,
+              p.nombre as proveedor,
+              c.total_compra as monto,
+              c.estado,
+              c.fecha_pedido as fecha
+            FROM Compras c
+            JOIN Proveedores p ON c.proveedor_id = p.proveedor_id
+            WHERE c.fecha_pedido >= $1 
+              AND c.fecha_pedido <= $2
+            ORDER BY c.fecha_pedido DESC`,
+            [startDate, endDate]
+          );
+
+          const totalPurchases = purchasesResult.rows.reduce(
+            (sum: number, row: any) => sum + parseFloat(row.monto || "0"),
+            0
+          );
+          const purchasesCount = purchasesResult.rows.length;
+          const averagePurchase =
+            purchasesCount > 0 ? totalPurchases / purchasesCount : 0;
+
+          const prevMonthStart = startOfMonth(subMonths(periodDate, 1));
+          const prevMonthEnd = endOfMonth(subMonths(periodDate, 1));
+          const prevPurchasesResult = await client.query(
+            `SELECT COALESCE(SUM(total_compra), 0) as total FROM Compras
+            WHERE fecha_pedido >= $1 AND fecha_pedido <= $2`,
+            [prevMonthStart, prevMonthEnd]
+          );
+
+          const prevTotalPurchases = parseFloat(
+            prevPurchasesResult.rows[0]?.total || "0"
+          );
+          const purchasesTrend =
+            prevTotalPurchases > 0
+              ? parseFloat(
+                  (
+                    ((totalPurchases - prevTotalPurchases) /
+                      prevTotalPurchases) *
+                    100
+                  ).toFixed(1)
+                )
+              : 0;
+
+          const summary = {
+            totalPurchases,
+            purchasesCount,
+            averagePurchase,
+            purchasesTrend,
+          };
+
+          const pdfBlob = await generateCostsReport({
+            period,
+            purchases: purchasesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getCompraEstadoLabel(row.estado),
+            })),
+            summary,
+          });
+
+          const excelBuffer = await generateCostsExcel({
+            period,
+            purchases: purchasesResult.rows.map((row: any) => ({
+              ...row,
+              estado: getCompraEstadoLabel(row.estado),
+            })),
+            summary,
+          });
+
+          const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer());
+
+          success = await emailService.sendCostsReport(
             recipients,
             pdfBuffer,
             excelBuffer,
@@ -283,16 +472,16 @@ export async function POST(request: NextRequest) {
                AND fecha_fin_real >= date_trunc('month', CURRENT_DATE)) as produccion_total,
               (SELECT COUNT(*) FROM Materia_Prima) as inventario_total,
               (SELECT COUNT(*) FROM Materia_Prima 
-               WHERE cantidad_actual < cantidad_minima) as items_bajo_stock,
+               WHERE stock_actual < punto_pedido) as items_bajo_stock,
               (SELECT COALESCE(SUM(total_venta), 0) FROM Ordenes_Venta 
                WHERE fecha_pedido >= date_trunc('month', CURRENT_DATE)) as ventas_total,
               (SELECT COALESCE(SUM(total_compra), 0) FROM Compras 
                WHERE fecha_pedido >= date_trunc('month', CURRENT_DATE)) as costos_total,
               (SELECT COUNT(*) FROM Ordenes_Produccion 
-               WHERE fecha_entrega_estimada < CURRENT_DATE 
+               WHERE fecha_fin_estimada < CURRENT_DATE 
                AND estado != 'completada') as ordenes_vencidas,
               (SELECT COUNT(*) FROM Ordenes_Produccion 
-               WHERE fecha_entrega_estimada BETWEEN CURRENT_DATE 
+               WHERE fecha_fin_estimada BETWEEN CURRENT_DATE 
                AND CURRENT_DATE + INTERVAL '3 days' 
                AND estado != 'completada') as ordenes_en_riesgo`
           );
@@ -372,7 +561,7 @@ export async function POST(request: NextRequest) {
         type,
         recipients,
         duration,
-        user: payload.email,
+        user: user.email,
       });
 
       return NextResponse.json({
