@@ -1,0 +1,17 @@
+module.exports = [
+  "lib/auth.ts",
+  "lib/error-handler.ts",
+  "lib/api-validation.ts",
+  "lib/api-auth.ts",
+  "lib/permissions.ts",
+  "lib/api.ts",
+  "lib/database.ts",
+  "lib/business-constants.ts",
+  "lib/production-calculations.ts",
+  "lib/validation-helpers.ts",
+  "lib/utils.ts",
+  "lib/analytics/efficiency-analyzer.ts",
+  "app/api/compras/route.ts",
+  "app/api/ordenes-produccion/route.ts",
+  "app/api/ventas/route.ts",
+];

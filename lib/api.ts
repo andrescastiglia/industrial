@@ -211,10 +211,10 @@ class ApiClient {
   }
 
   async createCliente(data: Cliente): Promise<Cliente> {
-    const payload = await this.postRequest<Cliente | ApiEnvelope<Cliente>, Cliente>(
-      "/clientes",
-      data
-    );
+    const payload = await this.postRequest<
+      Cliente | ApiEnvelope<Cliente>,
+      Cliente
+    >("/clientes", data);
     return this.unwrapPayload(payload);
   }
 

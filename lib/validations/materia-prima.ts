@@ -6,7 +6,6 @@ import { z } from "zod";
 import {
   shortTextSchema,
   mediumTextSchema,
-  positiveDecimalSchema,
   nonNegativeDecimalSchema,
 } from "./common";
 

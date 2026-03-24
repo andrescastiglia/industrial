@@ -11,7 +11,7 @@ export function useProveedores() {
     try {
       setLoading(true);
       const data = await apiClient.getProveedores();
-      setProveedores(data as Proveedor[]);
+      setProveedores(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");

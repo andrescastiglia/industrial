@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import type { PoolClient } from "pg";
 
 import { pool } from "@/lib/database";
 import {
@@ -7,11 +8,7 @@ import {
   logApiOperation,
 } from "@/lib/api-auth";
 import { validateRequest } from "@/lib/api-validation";
-import {
-  createVentaSchema,
-  updateVentaSchema,
-  ventaIdSchema,
-} from "@/lib/validations/ventas";
+import { updateVentaSchema, ventaIdSchema } from "@/lib/validations/ventas";
 import {
   handleApiError,
   mapDatabaseError,
@@ -22,6 +19,11 @@ import { normalizeVentaEstado } from "@/lib/business-constants";
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
+type VentaDetalleInput = {
+  producto_id: number;
+  cantidad: number;
+  precio_unitario_venta?: number | null;
+};
 
 function normalizeVentaRow<T extends Record<string, any>>(row: T): T {
   return {
@@ -45,7 +47,7 @@ function normalizeVentaRow<T extends Record<string, any>>(row: T): T {
 
 function calculateVentaTotal(
   explicitTotal: number | null | undefined,
-  detalles: Array<{ cantidad: number; precio_unitario_venta?: number | null }>
+  detalles: VentaDetalleInput[]
 ) {
   if (explicitTotal != null) {
     return explicitTotal;
@@ -58,10 +60,63 @@ function calculateVentaTotal(
   );
 }
 
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
+async function fetchVentaDetalleRows(client: PoolClient, id: number) {
+  const detalleResult = await client.query(
+    `
+    SELECT
+      detalle_orden_venta_id,
+      orden_venta_id,
+      producto_id,
+      cantidad,
+      precio_unitario_venta
+    FROM Detalle_Orden_Venta
+    WHERE orden_venta_id = $1
+    ORDER BY detalle_orden_venta_id
+  `,
+    [id]
+  );
+
+  return detalleResult.rows;
+}
+
+async function replaceVentaDetalleRows(
+  client: PoolClient,
+  id: number,
+  detalles: VentaDetalleInput[]
 ) {
+  await client.query(
+    "DELETE FROM Detalle_Orden_Venta WHERE orden_venta_id = $1",
+    [id]
+  );
+
+  const detalleRows = [];
+
+  for (const detalle of detalles) {
+    const detalleResult = await client.query(
+      `
+      INSERT INTO Detalle_Orden_Venta (
+        orden_venta_id,
+        producto_id,
+        cantidad,
+        precio_unitario_venta
+      ) VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `,
+      [
+        id,
+        detalle.producto_id,
+        detalle.cantidad,
+        detalle.precio_unitario_venta || null,
+      ]
+    );
+
+    detalleRows.push(detalleResult.rows[0]);
+  }
+
+  return detalleRows;
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   return handleApiError(async () => {
     const auth = authenticateApiRequest(request);
@@ -144,10 +199,7 @@ export async function GET(
   }, request);
 }
 
-export async function PUT(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   return handleApiError(async () => {
     const auth = authenticateApiRequest(request);
@@ -218,50 +270,9 @@ export async function PUT(
 
       const updatedVenta = result.rows[0];
 
-      let detalleRows = [];
-      if (ventaData.detalles) {
-        await client.query(
-          "DELETE FROM Detalle_Orden_Venta WHERE orden_venta_id = $1",
-          [id]
-        );
-
-        for (const detalle of ventaData.detalles) {
-          const detalleResult = await client.query(
-            `
-            INSERT INTO Detalle_Orden_Venta (
-              orden_venta_id,
-              producto_id,
-              cantidad,
-              precio_unitario_venta
-            ) VALUES ($1, $2, $3, $4)
-            RETURNING *
-          `,
-            [
-              id,
-              detalle.producto_id,
-              detalle.cantidad,
-              detalle.precio_unitario_venta || null,
-            ]
-          );
-          detalleRows.push(detalleResult.rows[0]);
-        }
-      } else {
-        const detalleResult = await client.query(
-          `
-          SELECT
-            detalle_orden_venta_id,
-            orden_venta_id,
-            producto_id,
-            cantidad,
-            precio_unitario_venta
-          FROM Detalle_Orden_Venta
-          WHERE orden_venta_id = $1
-          ORDER BY detalle_orden_venta_id
-        `,
-          [id]
-        );
-        detalleRows = detalleResult.rows;
-      }
+      const detalleRows = ventaData.detalles
+        ? await replaceVentaDetalleRows(client, id, ventaData.detalles)
+        : await fetchVentaDetalleRows(client, id);
 
       await client.query("COMMIT");
 
@@ -283,10 +294,7 @@ export async function PUT(
   }, request);
 }
 
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   return handleApiError(async () => {
     const auth = authenticateApiRequest(request);

@@ -5,6 +5,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import nodemailer, { Transporter } from "nodemailer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -14,6 +15,7 @@ interface EmailConfig {
   host: string;
   port: number;
   secure: boolean;
+  requireTLS: boolean;
   auth: {
     user: string;
     pass: string;
@@ -39,6 +41,127 @@ interface ReportSchedule {
   recipients: string[];
   reports: ("production" | "sales" | "inventory" | "costs")[];
   time?: string; // HH:mm format
+}
+
+type ExecutiveTrend = "up" | "down" | "stable";
+
+type ExecutiveMetric = {
+  total?: number;
+  variacion_porcentaje?: number;
+  tendencia?: ExecutiveTrend;
+  items_bajo_stock?: number;
+};
+
+type ExecutiveSummaryMetrics = {
+  produccion?: ExecutiveMetric;
+  inventario?: ExecutiveMetric;
+  ventas?: ExecutiveMetric;
+  costos?: ExecutiveMetric;
+  ordenes?: {
+    vencidas?: number;
+    en_riesgo?: number;
+  };
+};
+
+function formatSignedPercentage(value: number): string {
+  return `${value > 0 ? "+" : ""}${value}%`;
+}
+
+function renderTrendMarkup(trend?: string | number): string {
+  if (trend == null || trend === "" || trend === 0) {
+    return "";
+  }
+
+  if (typeof trend === "string") {
+    const trendClass = trend.startsWith("+") ? "trend-up" : "trend-down";
+    return `<div class="${trendClass}">${trend}</div>`;
+  }
+
+  const trendClass = trend > 0 ? "trend-up" : "trend-down";
+  return `<div class="${trendClass}">${formatSignedPercentage(trend)}</div>`;
+}
+
+function renderOptionalHtml(content?: string): string {
+  return content || "";
+}
+
+function renderCriticalAlertDetails(details?: unknown): string {
+  if (!details) {
+    return "";
+  }
+
+  return `
+    <div class="details">
+      <h3>Detalles:</h3>
+      <pre>${JSON.stringify(details, null, 2)}</pre>
+    </div>
+  `;
+}
+
+function renderExecutiveMetricCard(options: {
+  label: string;
+  value: string | number;
+  trend?: string;
+}): string {
+  return `
+    <div class="metric">
+      <div class="metric-label">${options.label}</div>
+      <div class="metric-value">${options.value}</div>
+      ${renderOptionalHtml(options.trend)}
+    </div>
+  `;
+}
+
+function renderExecutiveMetricTrend(
+  metric?: ExecutiveMetric,
+  invertDirection?: boolean
+): string {
+  if (!metric?.tendencia) {
+    return "";
+  }
+
+  const isUp = invertDirection
+    ? metric.tendencia !== "up"
+    : metric.tendencia === "up";
+  const trendClass = isUp ? "up" : "down";
+  const variation = metric.variacion_porcentaje || 0;
+
+  return `<div class="trend trend-${trendClass}">${formatSignedPercentage(variation)}</div>`;
+}
+
+function renderInventoryStockAlert(metric?: ExecutiveMetric): string {
+  if (!metric?.items_bajo_stock) {
+    return "";
+  }
+
+  return `<div class="trend trend-down">${metric.items_bajo_stock} bajo stock</div>`;
+}
+
+function renderExecutiveAlerts(metrics: ExecutiveSummaryMetrics): string {
+  const alertItems: string[] = [];
+  const vencidas = metrics.ordenes?.vencidas || 0;
+  const enRiesgo = metrics.ordenes?.en_riesgo || 0;
+
+  if (vencidas > 0) {
+    alertItems.push(`<li>${vencidas} órdenes vencidas</li>`);
+  }
+
+  if (enRiesgo > 0) {
+    alertItems.push(`<li>${enRiesgo} órdenes en riesgo</li>`);
+  }
+
+  if (alertItems.length === 0) {
+    return "";
+  }
+
+  return `
+    <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107;">
+      <strong>⚠️ Alertas:</strong>
+      <ul>
+        ${alertItems.join("")}
+      </ul>
+    </div>
+  `;
 }
 
 /**
@@ -74,7 +197,7 @@ export class EmailService {
       return false;
     }
 
-    const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const messageId = `${Date.now()}-${randomUUID()}`;
     const messageDirectory = path.join(captureDirectory, messageId);
 
     await mkdir(messageDirectory, { recursive: true });
@@ -129,13 +252,18 @@ export class EmailService {
       }
 
       // Configuración desde variables de entorno
+      const smtpUser = process.env.SMTP_USER || "";
+      const smtpPass = process.env.SMTP_PASS || "";
+      const secureTransport = process.env.SMTP_SECURE !== "false";
+      const defaultPort = secureTransport ? "465" : "587";
       const config: EmailConfig = {
         host: process.env.SMTP_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.SMTP_PORT || "587"),
-        secure: process.env.SMTP_SECURE === "true",
+        port: parseInt(process.env.SMTP_PORT || defaultPort, 10),
+        secure: secureTransport,
+        requireTLS: true,
         auth: {
-          user: process.env.SMTP_USER || "",
-          pass: process.env.SMTP_PASS || "",
+          user: smtpUser,
+          pass: smtpPass,
         },
       };
 
@@ -147,8 +275,21 @@ export class EmailService {
         return;
       }
 
+      if (!config.secure) {
+        apiLogger.warn(
+          "SMTP insecure transport is disabled. Enable SMTPS or use capture mode."
+        );
+        return;
+      }
+
       this.config = config;
-      this.transporter = nodemailer.createTransport(config as any);
+      this.transporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: true,
+        requireTLS: true,
+        auth: config.auth,
+      });
 
       apiLogger.info("Email service initialized successfully");
     } catch (error: any) {
@@ -273,7 +414,7 @@ export class EmailService {
               <div class="kpi">
                 <div class="kpi-label">Total de Órdenes</div>
                 <div class="kpi-value">${summary.totalOrders}</div>
-                ${summary.trend ? `<div class="${summary.trend.startsWith("+") ? "trend-up" : "trend-down"}">${summary.trend}</div>` : ""}
+                ${renderTrendMarkup(summary.trend)}
               </div>
               
               <div class="kpi">
@@ -362,7 +503,7 @@ export class EmailService {
               <div class="kpi">
                 <div class="kpi-label">Ventas Totales</div>
                 <div class="kpi-value">$${new Intl.NumberFormat("es-CO").format(summary.totalSales)}</div>
-                ${summary.salesTrend ? `<div class="${summary.salesTrend > 0 ? "trend-up" : "trend-down"}">${summary.salesTrend > 0 ? "+" : ""}${summary.salesTrend}%</div>` : ""}
+                ${renderTrendMarkup(summary.salesTrend)}
               </div>
               
               <div class="kpi">
@@ -601,16 +742,7 @@ export class EmailService {
                 <div class="alert-message">${alertMessage}</div>
               </div>
               
-              ${
-                details
-                  ? `
-                <div class="details">
-                  <h3>Detalles:</h3>
-                  <pre>${JSON.stringify(details, null, 2)}</pre>
-                </div>
-              `
-                  : ""
-              }
+              ${renderCriticalAlertDetails(details)}
               
               <p><strong>Acción requerida:</strong> Por favor revise el sistema y tome las medidas necesarias.</p>
             </div>
@@ -635,7 +767,7 @@ export class EmailService {
    */
   async sendExecutiveSummary(
     recipients: string[],
-    metrics: any,
+    metrics: ExecutiveSummaryMetrics,
     period: string
   ): Promise<boolean> {
     const today = format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es });
@@ -671,44 +803,29 @@ export class EmailService {
               <p>A continuación el resumen de los indicadores clave del negocio:</p>
               
               <div class="metrics-grid">
-                <div class="metric">
-                  <div class="metric-label">Producción</div>
-                  <div class="metric-value">${metrics.produccion?.total || 0}</div>
-                  ${metrics.produccion?.tendencia ? `<div class="trend trend-${metrics.produccion.tendencia === "up" ? "up" : "down"}">${metrics.produccion.variacion_porcentaje > 0 ? "+" : ""}${metrics.produccion.variacion_porcentaje}%</div>` : ""}
-                </div>
-                
-                <div class="metric">
-                  <div class="metric-label">Inventario</div>
-                  <div class="metric-value">${metrics.inventario?.total || 0}</div>
-                  ${metrics.inventario?.items_bajo_stock ? `<div class="trend trend-down">${metrics.inventario.items_bajo_stock} bajo stock</div>` : ""}
-                </div>
-                
-                <div class="metric">
-                  <div class="metric-label">Ventas</div>
-                  <div class="metric-value">$${new Intl.NumberFormat("es-CO").format(metrics.ventas?.total || 0)}</div>
-                  ${metrics.ventas?.tendencia ? `<div class="trend trend-${metrics.ventas.tendencia === "up" ? "up" : "down"}">${metrics.ventas.variacion_porcentaje > 0 ? "+" : ""}${metrics.ventas.variacion_porcentaje}%</div>` : ""}
-                </div>
-                
-                <div class="metric">
-                  <div class="metric-label">Costos</div>
-                  <div class="metric-value">$${new Intl.NumberFormat("es-CO").format(metrics.costos?.total || 0)}</div>
-                  ${metrics.costos?.tendencia ? `<div class="trend trend-${metrics.costos.tendencia === "up" ? "down" : "up"}">${metrics.costos.variacion_porcentaje > 0 ? "+" : ""}${metrics.costos.variacion_porcentaje}%</div>` : ""}
-                </div>
+                ${renderExecutiveMetricCard({
+                  label: "Producción",
+                  value: metrics.produccion?.total || 0,
+                  trend: renderExecutiveMetricTrend(metrics.produccion),
+                })}
+                ${renderExecutiveMetricCard({
+                  label: "Inventario",
+                  value: metrics.inventario?.total || 0,
+                  trend: renderInventoryStockAlert(metrics.inventario),
+                })}
+                ${renderExecutiveMetricCard({
+                  label: "Ventas",
+                  value: `$${new Intl.NumberFormat("es-CO").format(metrics.ventas?.total || 0)}`,
+                  trend: renderExecutiveMetricTrend(metrics.ventas),
+                })}
+                ${renderExecutiveMetricCard({
+                  label: "Costos",
+                  value: `$${new Intl.NumberFormat("es-CO").format(metrics.costos?.total || 0)}`,
+                  trend: renderExecutiveMetricTrend(metrics.costos, true),
+                })}
               </div>
               
-              ${
-                metrics.ordenes?.vencidas > 0 || metrics.ordenes?.en_riesgo > 0
-                  ? `
-                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107;">
-                  <strong>⚠️ Alertas:</strong>
-                  <ul>
-                    ${metrics.ordenes.vencidas > 0 ? `<li>${metrics.ordenes.vencidas} órdenes vencidas</li>` : ""}
-                    ${metrics.ordenes.en_riesgo > 0 ? `<li>${metrics.ordenes.en_riesgo} órdenes en riesgo</li>` : ""}
-                  </ul>
-                </div>
-              `
-                  : ""
-              }
+              ${renderExecutiveAlerts(metrics)}
             </div>
             <div class="footer">
               <p>Este es un mensaje automático generado por el Sistema Industrial.</p>

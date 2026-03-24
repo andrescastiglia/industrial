@@ -12,10 +12,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function GET(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   try {
     // Autenticar usuario
@@ -79,10 +76,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   try {
     // Autenticar usuario
@@ -170,10 +164,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   try {
     // Autenticar usuario

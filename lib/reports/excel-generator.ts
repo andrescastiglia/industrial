@@ -7,6 +7,12 @@ import ExcelJS from "exceljs";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+type TableOptions = {
+  autoFilter?: boolean;
+  totals?: boolean;
+  formatColumns?: Record<number, string>;
+};
+
 /**
  * Clase base para generación de reportes Excel
  */
@@ -77,76 +83,12 @@ export class ExcelGenerator {
     startRow: number,
     headers: string[],
     data: any[][],
-    options?: {
-      autoFilter?: boolean;
-      totals?: boolean;
-      formatColumns?: Record<number, string>;
-    }
+    options?: TableOptions
   ): void {
-    // Headers
-    const headerRow = sheet.getRow(startRow);
-    headers.forEach((header, index) => {
-      const cell = headerRow.getCell(index + 1);
-      cell.value = header;
-      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FF2980B9" },
-      };
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.border = {
-        top: { style: "thin" },
-        left: { style: "thin" },
-        bottom: { style: "thin" },
-        right: { style: "thin" },
-      };
-    });
-    headerRow.height = 25;
+    this.addTableHeaders(sheet, startRow, headers);
+    this.addTableRows(sheet, startRow, data, options);
+    this.autoSizeColumns(sheet, headers, data);
 
-    // Data rows
-    data.forEach((row, rowIndex) => {
-      const dataRow = sheet.getRow(startRow + rowIndex + 1);
-      row.forEach((value, colIndex) => {
-        const cell = dataRow.getCell(colIndex + 1);
-        cell.value = value;
-        cell.border = {
-          top: { style: "thin" },
-          left: { style: "thin" },
-          bottom: { style: "thin" },
-          right: { style: "thin" },
-        };
-
-        // Aplicar formato a columnas específicas
-        if (options?.formatColumns && options.formatColumns[colIndex]) {
-          cell.numFmt = options.formatColumns[colIndex];
-        }
-
-        // Zebra striping
-        if (rowIndex % 2 === 0) {
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FFF5F5F5" },
-          };
-        }
-      });
-    });
-
-    // Auto-ajustar ancho de columnas
-    headers.forEach((_, index) => {
-      const column = sheet.getColumn(index + 1);
-      let maxLength = headers[index].length;
-      data.forEach((row) => {
-        const cellLength = String(row[index] || "").length;
-        if (cellLength > maxLength) {
-          maxLength = cellLength;
-        }
-      });
-      column.width = Math.min(Math.max(maxLength + 2, 10), 50);
-    });
-
-    // Agregar auto-filtro
     if (options?.autoFilter) {
       sheet.autoFilter = {
         from: { row: startRow, column: 1 },
@@ -154,48 +96,135 @@ export class ExcelGenerator {
       };
     }
 
-    // Agregar fila de totales
     if (options?.totals) {
-      const totalsRow = sheet.getRow(startRow + data.length + 1);
-      totalsRow.getCell(1).value = "TOTAL";
-      totalsRow.getCell(1).font = { bold: true };
-      totalsRow.getCell(1).fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFE0E0E0" },
-      };
+      this.addTotalsRow(sheet, startRow, headers, data, options);
+    }
+  }
 
-      // Agregar fórmulas de suma para columnas numéricas
-      headers.forEach((_, colIndex) => {
-        const firstDataRow = startRow + 1;
-        const lastDataRow = startRow + data.length;
-        const cell = totalsRow.getCell(colIndex + 1);
+  private addTableHeaders(
+    sheet: ExcelJS.Worksheet,
+    startRow: number,
+    headers: string[]
+  ): void {
+    const headerRow = sheet.getRow(startRow);
 
-        // Intentar agregar suma si la columna parece numérica
-        const sampleValue = data[0]?.[colIndex];
-        if (typeof sampleValue === "number") {
-          cell.value = {
-            formula: `SUM(${sheet.getColumn(colIndex + 1).letter}${firstDataRow}:${sheet.getColumn(colIndex + 1).letter}${lastDataRow})`,
-          };
-          cell.font = { bold: true };
-          if (options?.formatColumns && options.formatColumns[colIndex]) {
-            cell.numFmt = options.formatColumns[colIndex];
-          }
+    headers.forEach((header, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = header;
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = this.createFill("FF2980B9");
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      this.applyBorder(cell);
+    });
+
+    headerRow.height = 25;
+  }
+
+  private addTableRows(
+    sheet: ExcelJS.Worksheet,
+    startRow: number,
+    data: any[][],
+    options?: TableOptions
+  ): void {
+    data.forEach((row, rowIndex) => {
+      const dataRow = sheet.getRow(startRow + rowIndex + 1);
+      const isAlternateRow = rowIndex % 2 === 0;
+
+      row.forEach((value, colIndex) => {
+        const cell = dataRow.getCell(colIndex + 1);
+        cell.value = value;
+        this.applyBorder(cell);
+
+        const columnFormat = options?.formatColumns?.[colIndex];
+        if (columnFormat) {
+          cell.numFmt = columnFormat;
         }
 
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "FFE0E0E0" },
-        };
-        cell.border = {
-          top: { style: "thin" },
-          left: { style: "thin" },
-          bottom: { style: "thin" },
-          right: { style: "thin" },
-        };
+        if (isAlternateRow) {
+          cell.fill = this.createFill("FFF5F5F5");
+        }
       });
-    }
+    });
+  }
+
+  private autoSizeColumns(
+    sheet: ExcelJS.Worksheet,
+    headers: string[],
+    data: any[][]
+  ): void {
+    headers.forEach((header, index) => {
+      const column = sheet.getColumn(index + 1);
+      const maxLength = data.reduce((currentMax, row) => {
+        return Math.max(currentMax, String(row[index] || "").length);
+      }, header.length);
+
+      column.width = Math.min(Math.max(maxLength + 2, 10), 50);
+    });
+  }
+
+  private addTotalsRow(
+    sheet: ExcelJS.Worksheet,
+    startRow: number,
+    headers: string[],
+    data: any[][],
+    options?: TableOptions
+  ): void {
+    const totalsRow = sheet.getRow(startRow + data.length + 1);
+    totalsRow.getCell(1).value = "TOTAL";
+
+    headers.forEach((_, colIndex) => {
+      const cell = totalsRow.getCell(colIndex + 1);
+      const sampleValue = data[0]?.[colIndex];
+
+      cell.fill = this.createFill("FFE0E0E0");
+      cell.font = { bold: true };
+      this.applyBorder(cell);
+
+      if (typeof sampleValue !== "number") {
+        return;
+      }
+
+      cell.value = {
+        formula: this.getTotalsFormula(
+          sheet,
+          colIndex + 1,
+          startRow + 1,
+          startRow + data.length
+        ),
+      };
+
+      const columnFormat = options?.formatColumns?.[colIndex];
+      if (columnFormat) {
+        cell.numFmt = columnFormat;
+      }
+    });
+  }
+
+  private getTotalsFormula(
+    sheet: ExcelJS.Worksheet,
+    columnIndex: number,
+    firstRow: number,
+    lastRow: number
+  ): string {
+    const columnLetter = sheet.getColumn(columnIndex).letter;
+    return `SUM(${columnLetter}${firstRow}:${columnLetter}${lastRow})`;
+  }
+
+  private createFill(color: string): ExcelJS.FillPattern {
+    return {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: color },
+    };
+  }
+
+  private applyBorder(cell: ExcelJS.Cell): void {
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" },
+    };
   }
 
   /**

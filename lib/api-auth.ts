@@ -146,6 +146,10 @@ export function logApiOperation(
   details?: string
 ): void {
   const timestamp = new Date().toISOString();
-  const message = `[API_AUDIT] ${timestamp} | User: ${user.email} (${user.role}) | Method: ${method} | Endpoint: ${endpoint} | Action: ${action}${details ? ` | Details: ${details}` : ""}`;
+  const detailsMessage = details ? ` | Details: ${details}` : "";
+  const message =
+    `[API_AUDIT] ${timestamp} | User: ${user.email} (${user.role}) | ` +
+    `Method: ${method} | Endpoint: ${endpoint} | Action: ${action}` +
+    detailsMessage;
   console.log(message);
 }

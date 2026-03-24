@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
         duration,
       });
 
-      const totalDuration = timer.end();
+      timer.end();
       return NextResponse.json(result.rows);
     } catch (dbError: any) {
       apiLogger.error("Error de base de datos en GET /api/clientes", {
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
           userId: user.userId,
         });
 
-        const totalDuration = timer.end();
+        timer.end();
 
         return NextResponse.json(
           {

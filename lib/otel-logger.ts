@@ -10,7 +10,6 @@
 
 import {
   trace,
-  context,
   SpanStatusCode,
   type Exception,
   type Span,
@@ -30,6 +29,102 @@ interface LogOptions {
 
 const tracer = trace.getTracer("industrial-maese");
 
+function isErrorLevel(level: LogLevel): boolean {
+  return level === "error" || level === "fatal";
+}
+
+function logToConsole(
+  level: LogLevel,
+  message: string,
+  error?: Error | unknown,
+  options?: LogOptions
+): void {
+  const logFn = isErrorLevel(level) ? console.error : console.log;
+  logFn(`[OTel ${level.toUpperCase()}]`, message, error || "", options);
+}
+
+function addSpanExtra(span: Span, extra?: Record<string, any>): void {
+  if (!extra) {
+    return;
+  }
+
+  Object.entries(extra).forEach(([key, value]) => {
+    span.setAttribute(`extra.${key}`, JSON.stringify(value));
+  });
+}
+
+function addSpanUser(span: Span, user?: LogOptions["user"]): void {
+  if (!user) {
+    return;
+  }
+
+  span.setAttribute("user.id", user.id);
+  if (user.email) {
+    span.setAttribute("user.email", user.email);
+  }
+}
+
+function recordSpanError(
+  span: Span,
+  message: string,
+  error?: Error | unknown
+): void {
+  if (error instanceof Error) {
+    span.recordException(error as Exception);
+    span.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: error.message,
+    });
+    return;
+  }
+
+  if (error) {
+    span.recordException(String(error) as unknown as Exception);
+    span.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: String(error),
+    });
+    return;
+  }
+
+  span.setStatus({
+    code: SpanStatusCode.ERROR,
+    message,
+  });
+}
+
+function logErrorSpan(
+  level: LogLevel,
+  message: string,
+  error?: Error | unknown,
+  options?: LogOptions
+): void {
+  const span = tracer.startSpan(`error.${message}`, {
+    attributes: {
+      "error.level": level,
+      "error.message": message,
+      ...options?.tags,
+    },
+  });
+
+  recordSpanError(span, message, error);
+  addSpanExtra(span, options?.extra);
+  addSpanUser(span, options?.user);
+  span.end();
+}
+
+function logHighSeverityWarning(message: string, options?: LogOptions): void {
+  const span = tracer.startSpan(`warning.${message}`, {
+    attributes: {
+      "warning.level": "high",
+      "warning.message": message,
+      ...options?.tags,
+    },
+  });
+
+  span.end();
+}
+
 /**
  * Log controlado que respeta el entorno
  * - Producción: genera spans y traces en OpenTelemetry
@@ -41,69 +136,18 @@ export function logToOtel(
   error?: Error | unknown,
   options?: LogOptions
 ) {
-  const isProduction = process.env.NODE_ENV === "production";
-  const isDevelopment = process.env.NODE_ENV === "development";
-
-  // En desarrollo, solo consola
-  if (isDevelopment) {
-    const logFn =
-      level === "error" || level === "fatal" ? console.error : console.log;
-    logFn(`[OTel ${level.toUpperCase()}]`, message, error || "", options);
+  if (process.env.NODE_ENV === "development") {
+    logToConsole(level, message, error, options);
     return;
   }
 
-  // En producción, filtrar por nivel
-  if (level === "fatal" || level === "error") {
-    // Crear span para el error
-    const span = tracer.startSpan(`error.${message}`, {
-      attributes: {
-        "error.level": level,
-        "error.message": message,
-        ...options?.tags,
-      },
-    });
+  if (isErrorLevel(level)) {
+    logErrorSpan(level, message, error, options);
+    return;
+  }
 
-    // Agregar información del error
-    if (error instanceof Error) {
-      span.recordException(error as Exception);
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: error.message,
-      });
-    } else if (error) {
-      span.recordException(String(error) as unknown as Exception);
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: String(error),
-      });
-    }
-
-    // Agregar contexto adicional
-    if (options?.extra) {
-      Object.entries(options.extra).forEach(([key, value]) => {
-        span.setAttribute(`extra.${key}`, JSON.stringify(value));
-      });
-    }
-
-    // Agregar usuario si existe
-    if (options?.user) {
-      span.setAttribute("user.id", options.user.id);
-      if (options.user.email) {
-        span.setAttribute("user.email", options.user.email);
-      }
-    }
-
-    span.end();
-  } else if (level === "warning" && options?.tags?.severity === "high") {
-    // Solo warnings críticos
-    const span = tracer.startSpan(`warning.${message}`, {
-      attributes: {
-        "warning.level": "high",
-        "warning.message": message,
-        ...options?.tags,
-      },
-    });
-    span.end();
+  if (level === "warning" && options?.tags?.severity === "high") {
+    logHighSeverityWarning(message, options);
   }
 }
 
@@ -114,7 +158,7 @@ export function withTrace<T>(
   name: string,
   operation: (span: Span) => T | Promise<T>,
   attributes?: Record<string, string | number | boolean>
-  ): Promise<T> {
+): Promise<T> {
   return tracer.startActiveSpan(name, { attributes }, async (span) => {
     try {
       const result = await Promise.resolve(operation(span));

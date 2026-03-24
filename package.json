@@ -25,6 +25,7 @@
     "format:check": "prettier --check .",
     "start": "next start",
     "start:e2e": "next start --hostname 127.0.0.1 --port 3000",
+    "sonar:scan": "node scripts/run-sonar-local.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

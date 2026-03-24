@@ -22,13 +22,8 @@ import {
   TrendingDown,
   AlertTriangle,
   CheckCircle2,
-  Clock,
-  DollarSign,
-  Package,
-  Users,
   RefreshCw,
   Lightbulb,
-  Target,
   Activity,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -154,6 +149,21 @@ export default function AnalisisEficienciaPage() {
       low: "outline",
     };
     return colors[priority as keyof typeof colors] || "default";
+  };
+
+  const getRecommendationBorderColor = (
+    priority: Recommendation["priority"]
+  ) => {
+    switch (priority) {
+      case "critical":
+        return "#ef4444";
+      case "high":
+        return "#f97316";
+      case "medium":
+        return "#eab308";
+      default:
+        return "#6b7280";
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -384,8 +394,8 @@ export default function AnalisisEficienciaPage() {
                   <ul className="text-sm space-y-1">
                     {data.bottlenecks.slowStages
                       .slice(0, 3)
-                      .map((stage: any, idx: number) => (
-                        <li key={idx} className="text-gray-600">
+                      .map((stage: any) => (
+                        <li key={stage.stageName} className="text-gray-600">
                           • {stage.stageName}:{" "}
                           {stage.averageDuration.toFixed(1)} días
                         </li>
@@ -405,8 +415,8 @@ export default function AnalisisEficienciaPage() {
                   <ul className="text-sm space-y-1">
                     {data.bottlenecks.problematicProducts
                       .slice(0, 3)
-                      .map((product: any, idx: number) => (
-                        <li key={idx} className="text-gray-600">
+                      .map((product: any) => (
+                        <li key={product.productId} className="text-gray-600">
                           • {product.productName}:{" "}
                           {product.delayRate.toFixed(0)}% retrasos
                         </li>
@@ -426,8 +436,8 @@ export default function AnalisisEficienciaPage() {
                   <ul className="text-sm space-y-1">
                     {data.bottlenecks.slowSuppliers
                       .slice(0, 3)
-                      .map((supplier: any, idx: number) => (
-                        <li key={idx} className="text-gray-600">
+                      .map((supplier: any) => (
+                        <li key={supplier.supplierId} className="text-gray-600">
                           • {supplier.supplierName}: +
                           {supplier.delayDays.toFixed(1)} días
                         </li>
@@ -468,14 +478,7 @@ export default function AnalisisEficienciaPage() {
                 key={rec.id}
                 className="border-l-4"
                 style={{
-                  borderLeftColor:
-                    rec.priority === "critical"
-                      ? "#ef4444"
-                      : rec.priority === "high"
-                        ? "#f97316"
-                        : rec.priority === "medium"
-                          ? "#eab308"
-                          : "#6b7280",
+                  borderLeftColor: getRecommendationBorderColor(rec.priority),
                 }}
               >
                 <CardHeader className="pb-3">
@@ -504,9 +507,9 @@ export default function AnalisisEficienciaPage() {
                         Acciones Recomendadas:
                       </p>
                       <ul className="text-sm space-y-1">
-                        {rec.actionItems.map((action, idx) => (
+                        {rec.actionItems.map((action) => (
                           <li
-                            key={idx}
+                            key={`${rec.id}-${action}`}
                             className="text-gray-600 flex items-start"
                           >
                             <span className="mr-2">•</span>

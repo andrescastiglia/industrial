@@ -7,6 +7,7 @@ import {
   logApiOperation,
 } from "@/lib/api-auth";
 import { withTrace, captureApiError } from "@/lib/otel-logger";
+import { emailSchema } from "@/lib/validations/common";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Validar formato de email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
+      const normalizedEmail = emailSchema.safeParse(email);
+      if (!normalizedEmail.success) {
         return NextResponse.json(
           { error: "Formato de email inválido" },
           { status: 400 }
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
           `INSERT INTO usuarios (email, password_hash, role, nombre, apellido)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING user_id, email, role, nombre, apellido, created_at, is_active`,
-          [email, password_hash, role, nombre, apellido]
+          [normalizedEmail.data, password_hash, role, nombre, apellido]
         );
 
         // Log de auditoría
@@ -88,10 +89,10 @@ export async function POST(request: NextRequest) {
           "POST",
           "/api/auth/register",
           auth.user,
-          `Usuario creado: ${email} (${role})`
+          `Usuario creado: ${normalizedEmail.data} (${role})`
         );
 
-        span?.setAttribute("user.created_email", email);
+        span?.setAttribute("user.created_email", normalizedEmail.data);
         span?.setAttribute("user.created_role", role);
         span?.setAttribute("user.created_id", result.rows[0].user_id);
 

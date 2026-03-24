@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +45,8 @@ import {
   normalizeCompraEstado,
 } from "@/lib/business-constants";
 
+type DateInputValue = Date | string | null | undefined;
+
 function formatDate(value?: Date | string | null) {
   if (!value) return "Sin fecha";
   return new Date(value).toLocaleDateString("es-AR");
@@ -64,8 +66,8 @@ function formatCurrency(value?: number | null) {
 }
 
 function calcularDiasRetraso(
-  fechaEstimada?: Date | string | null,
-  fechaReal?: Date | string | null
+  fechaEstimada?: DateInputValue,
+  fechaReal?: DateInputValue
 ) {
   if (!fechaEstimada) return 0;
 
@@ -142,7 +144,7 @@ export default function ComprasPage() {
     0
   );
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);

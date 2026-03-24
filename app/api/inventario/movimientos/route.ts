@@ -80,10 +80,10 @@ export async function PUT(request: NextRequest) {
       console.error("Error updating materia_prima:", error);
       captureApiError(
         error,
-          "/api/inventario/movimientos",
-          "PUT",
-          auth?.user?.userId,
-          { materia_prima_id, cantidad }
+        "/api/inventario/movimientos",
+        "PUT",
+        auth?.user?.userId,
+        { materia_prima_id, cantidad }
       );
       return NextResponse.json(
         { error: "Error interno del servidor" },

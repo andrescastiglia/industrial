@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, type SyntheticEvent } from "react";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,7 @@ export default function ProveedoresPage() {
       setLoading(true);
       try {
         const data = await apiClient.getProveedores();
-        setProveedores(data as Proveedor[]);
+        setProveedores(data);
       } catch {
         setError("Error al cargar proveedores");
       } finally {
@@ -66,7 +66,7 @@ export default function ProveedoresPage() {
       proveedor.direccion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
@@ -89,7 +89,7 @@ export default function ProveedoresPage() {
         await apiClient.createProveedor(proveedorData);
       }
       const data = await apiClient.getProveedores();
-      setProveedores(data as Proveedor[]);
+      setProveedores(data);
     } catch {
       setError("Error al guardar proveedor");
     }
@@ -106,7 +106,7 @@ export default function ProveedoresPage() {
     try {
       await apiClient.deleteProveedor(id);
       const data = await apiClient.getProveedores();
-      setProveedores(data as Proveedor[]);
+      setProveedores(data);
     } catch {
       setError("Error al eliminar proveedor");
     }

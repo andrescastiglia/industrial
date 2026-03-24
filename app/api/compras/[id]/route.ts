@@ -21,10 +21,90 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
-) {
+type CompraUpdateField = {
+  key: string;
+  column: string;
+  shouldInclude?: (value: unknown) => boolean;
+  normalize?: (value: unknown) => unknown;
+};
+
+function isValidCompraValue(value: unknown): boolean {
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  if (typeof value === "object" && !(value instanceof Date)) {
+    return Object.keys(value).length > 0;
+  }
+
+  return true;
+}
+
+function cleanCompraValue(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "object" && !(value instanceof Date)) {
+    return Object.keys(value).length === 0 ? null : value;
+  }
+
+  return value;
+}
+
+const compraUpdateFields: CompraUpdateField[] = [
+  { key: "proveedor_id", column: "proveedor_id" },
+  {
+    key: "fecha_pedido",
+    column: "fecha_pedido",
+    shouldInclude: isValidCompraValue,
+    normalize: cleanCompraValue,
+  },
+  {
+    key: "fecha_recepcion_estimada",
+    column: "fecha_recepcion_estimada",
+    normalize: cleanCompraValue,
+  },
+  {
+    key: "fecha_recepcion_real",
+    column: "fecha_recepcion_real",
+    normalize: cleanCompraValue,
+  },
+  { key: "estado", column: "estado" },
+  { key: "total_compra", column: "total_compra" },
+  {
+    key: "cotizacion_ref",
+    column: "cotizacion_ref",
+    normalize: (value: unknown) => value || null,
+  },
+];
+
+function buildCompraUpdateQuery(compraData: Record<string, unknown>) {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  for (const field of compraUpdateFields) {
+    const value = compraData[field.key];
+    if (value === undefined) {
+      continue;
+    }
+
+    if (field.shouldInclude && !field.shouldInclude(value)) {
+      continue;
+    }
+
+    updates.push(`${field.column} = $${values.length + 1}`);
+    values.push(field.normalize ? field.normalize(value) : value);
+  }
+
+  return {
+    updates,
+    values,
+    paramIndex: values.length + 1,
+  };
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const timer = startTimer(`GET /api/compras/${params.id}`, apiLogger);
 
@@ -148,10 +228,7 @@ export async function GET(
   }, request);
 }
 
-export async function PUT(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const timer = startTimer(`PUT /api/compras/${params.id}`, apiLogger);
 
@@ -219,75 +296,9 @@ export async function PUT(
         throw new NotFoundError("Compra");
       }
 
-      // Build dynamic update query
-      const updates: string[] = [];
-      const values: any[] = [];
-      let paramIndex = 1;
-
-      // Helper para validar si un valor es válido (no es objeto vacío)
-      const isValidValue = (value: any) => {
-        if (value === null || value === undefined) return true; // null es válido para campos opcionales
-        if (typeof value === "object" && !(value instanceof Date)) {
-          // Si es un objeto vacío, no es válido
-          return Object.keys(value).length > 0;
-        }
-        return true;
-      };
-
-      // Helper para limpiar valores (convertir objetos vacíos a null)
-      const cleanValue = (value: any) => {
-        if (value === null || value === undefined) return null;
-        if (typeof value === "object" && !(value instanceof Date)) {
-          return Object.keys(value).length === 0 ? null : value;
-        }
-        return value;
-      };
-
-      if (compraData.proveedor_id !== undefined) {
-        updates.push(`proveedor_id = $${paramIndex}`);
-        values.push(compraData.proveedor_id);
-        paramIndex++;
-      }
-
-      // Solo actualizar fecha_pedido si viene con un valor válido (no objeto vacío)
-      if (
-        compraData.fecha_pedido !== undefined &&
-        isValidValue(compraData.fecha_pedido)
-      ) {
-        updates.push(`fecha_pedido = $${paramIndex}`);
-        values.push(cleanValue(compraData.fecha_pedido));
-        paramIndex++;
-      }
-
-      if (compraData.fecha_recepcion_estimada !== undefined) {
-        updates.push(`fecha_recepcion_estimada = $${paramIndex}`);
-        values.push(cleanValue(compraData.fecha_recepcion_estimada));
-        paramIndex++;
-      }
-
-      if (compraData.fecha_recepcion_real !== undefined) {
-        updates.push(`fecha_recepcion_real = $${paramIndex}`);
-        values.push(cleanValue(compraData.fecha_recepcion_real));
-        paramIndex++;
-      }
-
-      if (compraData.estado !== undefined) {
-        updates.push(`estado = $${paramIndex}`);
-        values.push(compraData.estado);
-        paramIndex++;
-      }
-
-      if (compraData.total_compra !== undefined) {
-        updates.push(`total_compra = $${paramIndex}`);
-        values.push(compraData.total_compra);
-        paramIndex++;
-      }
-
-      if (compraData.cotizacion_ref !== undefined) {
-        updates.push(`cotizacion_ref = $${paramIndex}`);
-        values.push(compraData.cotizacion_ref || null);
-        paramIndex++;
-      }
+      const { updates, values, paramIndex } = buildCompraUpdateQuery(
+        compraData as Record<string, unknown>
+      );
 
       if (updates.length === 0) {
         apiLogger.warn("No hay campos para actualizar", { compraId: id });
@@ -297,12 +308,10 @@ export async function PUT(
         );
       }
 
-      values.push(id);
-
       const dbTimer = startTimer("Update compra", apiLogger);
       const result = await client.query(
         `UPDATE Compras SET ${updates.join(", ")} WHERE compra_id = $${paramIndex} RETURNING *`,
-        values
+        [...values, id]
       );
       dbTimer.endDb();
 
@@ -340,10 +349,7 @@ export async function PUT(
   }, request);
 }
 
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const timer = startTimer(`DELETE /api/compras/${params.id}`, apiLogger);
 

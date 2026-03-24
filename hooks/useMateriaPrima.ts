@@ -11,7 +11,7 @@ export function useMateriaPrima() {
     try {
       setLoading(true);
       const data = await apiClient.getMateriaPrima();
-      setMateriales(data as MateriaPrima[]);
+      setMateriales(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -23,7 +23,7 @@ export function useMateriaPrima() {
   const createMaterial = async (materialData: MateriaPrima) => {
     try {
       const newMaterial = await apiClient.createMateriaPrima(materialData);
-      setMateriales((prev) => [newMaterial as MateriaPrima, ...prev]);
+      setMateriales((prev) => [newMaterial, ...prev]);
       return newMaterial;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear material");
@@ -39,9 +39,7 @@ export function useMateriaPrima() {
       );
       setMateriales((prev) =>
         prev.map((material: MateriaPrima) =>
-          material.materia_prima_id === id
-            ? (updatedMaterial as MateriaPrima)
-            : material
+          material.materia_prima_id === id ? updatedMaterial : material
         )
       );
       return updatedMaterial;

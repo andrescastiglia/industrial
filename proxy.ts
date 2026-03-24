@@ -33,7 +33,9 @@ export function proxy(request: NextRequest) {
         hasAuthHeader: !!authHeader,
         hasCookie: !!cookieToken,
         hasToken: !!token,
-        cookieValue: cookieToken ? `${cookieToken.substring(0, 20)}...` : "none",
+        cookieValue: cookieToken
+          ? `${cookieToken.substring(0, 20)}...`
+          : "none",
       });
     }
 

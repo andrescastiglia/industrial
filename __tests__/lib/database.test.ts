@@ -1,87 +1,145 @@
-/**
- * Tests para el módulo de base de datos
- * Verifica la configuración del pool de PostgreSQL
- */
-
-import { Pool } from "pg";
-import { pool } from "@/lib/database";
-
-// Mock del módulo pg
-jest.mock("pg", () => {
-  const mockPool = {
-    query: jest.fn(),
-    connect: jest.fn(),
-    end: jest.fn(),
-    on: jest.fn(),
+type LoadedDatabaseModule = {
+  pool: {
+    query: jest.Mock;
+    connect: jest.Mock;
+    end: jest.Mock;
+    on: jest.Mock;
   };
-  return {
-    Pool: jest.fn(() => mockPool),
+  PoolMock: jest.Mock;
+  poolConfig: {
+    connectionString: string;
+    ssl: false | { rejectUnauthorized: false };
   };
-});
+};
 
 describe("database.ts", () => {
-  describe("Pool Configuration", () => {
-    it("should create a Pool instance", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    process.env = { ...originalEnv } as NodeJS.ProcessEnv;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  function loadDatabaseModule(
+    envOverrides: Partial<NodeJS.ProcessEnv> = {}
+  ): LoadedDatabaseModule {
+    process.env = {
+      ...originalEnv,
+      ...envOverrides,
+    } as NodeJS.ProcessEnv;
+
+    const mockPool = {
+      query: jest.fn(),
+      connect: jest.fn(),
+      end: jest.fn(),
+      on: jest.fn(),
+    };
+    const PoolMock = jest.fn(() => mockPool);
+
+    jest.doMock("pg", () => ({
+      Pool: PoolMock,
+    }));
+
+    let databaseModule: { pool: LoadedDatabaseModule["pool"] } | undefined;
+
+    jest.isolateModules(() => {
+      databaseModule = require("@/lib/database");
+    });
+
+    const [firstCall] = PoolMock.mock.calls as unknown as Array<
+      [LoadedDatabaseModule["poolConfig"]]
+    >;
+
+    if (!firstCall) {
+      throw new Error("Pool mock was not called");
+    }
+
+    const [poolConfig] = firstCall;
+
+    return {
+      pool: databaseModule!.pool,
+      PoolMock,
+      poolConfig,
+    };
+  }
+
+  describe("pool configuration", () => {
+    it("uses the default local connection string without SSL outside production", () => {
+      const { pool, PoolMock, poolConfig } = loadDatabaseModule({
+        NODE_ENV: "test",
+        DATABASE_URL: undefined,
+        DATABASE_SSL: undefined,
+      });
+
       expect(pool).toBeDefined();
-      expect(Pool).toHaveBeenCalled();
+      expect(PoolMock).toHaveBeenCalledTimes(1);
+      expect(poolConfig).toEqual({
+        connectionString: "postgresql://user:password@localhost:5432/db",
+        ssl: false,
+      });
     });
 
-    it("should configure pool with connection string", () => {
-      expect(Pool).toHaveBeenCalledWith(
-        expect.objectContaining({
-          connectionString: expect.any(String),
-        })
-      );
+    it("honors DATABASE_SSL=true explicitly", () => {
+      const { poolConfig } = loadDatabaseModule({
+        NODE_ENV: "test",
+        DATABASE_URL: "postgresql://db.internal:5432/industrial",
+        DATABASE_SSL: "true",
+      });
+
+      expect(poolConfig.ssl).toEqual({ rejectUnauthorized: false });
     });
 
-    it("should have ssl configuration based on environment", () => {
-      const poolConfig = (Pool as unknown as jest.Mock).mock.calls[0][0];
+    it("honors DATABASE_SSL=false even for production", () => {
+      const { poolConfig } = loadDatabaseModule({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://db.internal:5432/industrial",
+        DATABASE_SSL: "false",
+      });
 
-      if (process.env.NODE_ENV === "production") {
-        expect(poolConfig.ssl).toEqual({ rejectUnauthorized: false });
-      } else {
-        expect(poolConfig.ssl).toBe(false);
-      }
+      expect(poolConfig.ssl).toBe(false);
     });
 
-    it("should configure pool with DATABASE_URL environment variable", () => {
-      // Este test simplemente verifica que el pool está configurado
-      // No intentamos re-importar el módulo ya que es un singleton
-      expect(Pool).toHaveBeenCalledWith(
-        expect.objectContaining({
-          connectionString: expect.any(String),
-        })
-      );
+    it("disables SSL for localhost database URLs in production", () => {
+      const { poolConfig } = loadDatabaseModule({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://127.0.0.1:5432/industrial",
+      });
+
+      expect(poolConfig.ssl).toBe(false);
     });
 
-    it("should have default connection string when DATABASE_URL not set", () => {
-      const poolConfig = (Pool as unknown as jest.Mock).mock.calls[0][0];
+    it("enables SSL for remote database URLs in production", () => {
+      const { poolConfig } = loadDatabaseModule({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://db.example.com:5432/industrial",
+      });
 
-      expect(poolConfig.connectionString).toBeDefined();
-      expect(typeof poolConfig.connectionString).toBe("string");
+      expect(poolConfig.ssl).toEqual({ rejectUnauthorized: false });
+    });
+
+    it("falls back to SSL when the production DATABASE_URL cannot be parsed", () => {
+      const { poolConfig } = loadDatabaseModule({
+        NODE_ENV: "production",
+        DATABASE_URL: "not-a-valid-url",
+      });
+
+      expect(poolConfig.ssl).toEqual({ rejectUnauthorized: false });
     });
   });
 
-  describe("Pool Methods", () => {
-    it("should have query method", () => {
-      expect(pool.query).toBeDefined();
-      expect(typeof pool.query).toBe("function");
-    });
+  describe("pool methods", () => {
+    it("exposes the standard pg pool API", () => {
+      const { pool } = loadDatabaseModule();
 
-    it("should have connect method", () => {
-      expect(pool.connect).toBeDefined();
-      expect(typeof pool.connect).toBe("function");
-    });
-
-    it("should have end method", () => {
-      expect(pool.end).toBeDefined();
-      expect(typeof pool.end).toBe("function");
-    });
-  });
-
-  describe("Type Exports", () => {
-    it("should export pool instance", () => {
-      expect(pool).toBeDefined();
+      expect(pool.query).toEqual(expect.any(Function));
+      expect(pool.connect).toEqual(expect.any(Function));
+      expect(pool.end).toEqual(expect.any(Function));
+      expect(pool.on).toEqual(expect.any(Function));
     });
   });
 });

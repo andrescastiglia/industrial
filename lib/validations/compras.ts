@@ -30,7 +30,7 @@ export const compraBaseSchema = z.object({
       const normalized = normalizeCompraEstado(value);
       if (!normalized) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Estado de compra inválido",
         });
         return z.NEVER;

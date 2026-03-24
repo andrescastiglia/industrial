@@ -5,7 +5,6 @@
 import { z } from "zod";
 import {
   positiveIntSchema,
-  positiveDecimalSchema,
   nonNegativeDecimalSchema,
   dateSchema,
 } from "./common";
@@ -27,7 +26,7 @@ export const ventaBaseSchema = z.object({
       const normalized = normalizeVentaEstado(value);
       if (!normalized) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Estado de venta inválido",
         });
         return z.NEVER;

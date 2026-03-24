@@ -32,6 +32,23 @@ interface ProduccionChartProps {
   loading?: boolean;
 }
 
+function ProduccionTooltip({ active, payload }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 border border-gray-200 rounded shadow-lg">
+        <p className="text-sm font-medium">
+          {payload[0].payload.fechaCompleta}
+        </p>
+        <p className="text-sm text-blue-600 font-semibold">
+          {payload[0].value} órdenes completadas
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export function ProduccionChart({
   data,
   loading = false,
@@ -75,23 +92,6 @@ export function ProduccionChart({
     );
   }
 
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border border-gray-200 rounded shadow-lg">
-          <p className="text-sm font-medium">
-            {payload[0].payload.fechaCompleta}
-          </p>
-          <p className="text-sm text-blue-600 font-semibold">
-            {payload[0].value} órdenes completadas
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -122,7 +122,7 @@ export function ProduccionChart({
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ProduccionTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: "14px", paddingTop: "10px" }}
               iconType="line"

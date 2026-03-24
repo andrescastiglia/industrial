@@ -11,7 +11,7 @@ export function useClientes() {
     try {
       setLoading(true);
       const data = await apiClient.getClientes();
-      setClientes(data as Cliente[]);
+      setClientes(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -23,7 +23,7 @@ export function useClientes() {
   const createCliente = async (clienteData: Cliente) => {
     try {
       const newCliente = await apiClient.createCliente(clienteData);
-      setClientes((prev) => [newCliente as Cliente, ...prev]);
+      setClientes((prev) => [newCliente, ...prev]);
       return newCliente;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear cliente");
@@ -36,7 +36,7 @@ export function useClientes() {
       const updatedCliente = await apiClient.updateCliente(id, clienteData);
       setClientes((prev) =>
         prev.map((cliente: Cliente) =>
-          cliente.cliente_id === id ? (updatedCliente as Cliente) : cliente
+          cliente.cliente_id === id ? updatedCliente : cliente
         )
       );
       return updatedCliente;

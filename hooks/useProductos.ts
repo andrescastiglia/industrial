@@ -11,7 +11,7 @@ export function useProductos() {
     try {
       setLoading(true);
       const data = await apiClient.getProductos();
-      setProductos(data as Producto[]);
+      setProductos(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -29,7 +29,7 @@ export function useProductos() {
         productoData,
         componentes
       );
-      setProductos((prev) => [newProducto as Producto, ...prev]);
+      setProductos((prev) => [newProducto, ...prev]);
       return newProducto;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear producto");
@@ -50,7 +50,7 @@ export function useProductos() {
       );
       setProductos((prev) =>
         prev.map((producto: Producto) =>
-          producto.producto_id === id ? (updatedProducto as Producto) : producto
+          producto.producto_id === id ? updatedProducto : producto
         )
       );
       return updatedProducto;

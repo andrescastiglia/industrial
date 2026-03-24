@@ -12,20 +12,78 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_SERVICE_VERSION,
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
 } from "@opentelemetry/semantic-conventions";
 
 const isProduction = process.env.NODE_ENV === "production";
 const isDevelopment = process.env.NODE_ENV === "development";
+const ATTR_DEPLOYMENT_ENVIRONMENT = "deployment.environment";
+
+function getRequestUrl(req: unknown): string {
+  if (typeof req !== "object" || req === null || !("url" in req)) {
+    return "";
+  }
+
+  return typeof req.url === "string" ? req.url : "";
+}
+
+function shouldIgnoreIncomingRequest(url: string): boolean {
+  return (
+    url.includes("/_next/") ||
+    url.includes("/favicon.ico") ||
+    url.includes("/health") ||
+    url.includes("/__nextjs") ||
+    url.includes(".well-known")
+  );
+}
+
+function getMutationOperation(statement: string): string | null {
+  const operations = ["INSERT", "UPDATE", "DELETE", "ALTER", "DROP", "CREATE"];
+  const matchedOperation = operations.find((operation) =>
+    statement.startsWith(operation)
+  );
+
+  return matchedOperation || null;
+}
+
+function truncateStatement(statement: string): string {
+  return statement.length > 500
+    ? `${statement.substring(0, 500)}...`
+    : statement;
+}
+
+function annotateDatabaseSpan(span: any, queryConfig: unknown): void {
+  if (typeof queryConfig !== "object" || queryConfig === null) {
+    return;
+  }
+
+  const text =
+    "text" in queryConfig && typeof queryConfig.text === "string"
+      ? queryConfig.text
+      : "";
+
+  if (!text) {
+    return;
+  }
+
+  const normalizedStatement = text.trim().toUpperCase();
+  const operation = getMutationOperation(normalizedStatement);
+
+  if (!operation) {
+    span.setAttribute("otel.skip", true);
+    return;
+  }
+
+  span.setAttribute("db.statement", truncateStatement(text));
+  span.setAttribute("db.operation", operation);
+}
 
 // Configuración del servicio
 const resource = resourceFromAttributes({
-  [SEMRESATTRS_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "industrial-maese",
-  [SEMRESATTRS_SERVICE_VERSION]: "0.1.0",
-  [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
-    process.env.NODE_ENV || "development",
+  [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "industrial-maese",
+  [ATTR_SERVICE_VERSION]: "0.1.0",
+  [ATTR_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || "development",
 });
 
 // Exportador de traces
@@ -57,21 +115,11 @@ const sdk = new NodeSDK({
       // HTTP - habilitado (APIs y fetches)
       "@opentelemetry/instrumentation-http": {
         enabled: true,
-        // Filtrar requests innecesarios
         ignoreIncomingRequestHook: (req) => {
-          const url = "url" in req && typeof req.url === "string" ? req.url : "";
-          // Ignorar health checks, assets estáticos, y archivos Next.js
-          return (
-            url.includes("/_next/") ||
-            url.includes("/favicon.ico") ||
-            url.includes("/health") ||
-            url.includes("/__nextjs") ||
-            url.includes(".well-known")
-          );
+          return shouldIgnoreIncomingRequest(getRequestUrl(req));
         },
-        // Agregar atributos personalizados
         requestHook: (span, req) => {
-          const url = "url" in req && typeof req.url === "string" ? req.url : "";
+          const url = getRequestUrl(req);
           if (url.includes("/api/")) {
             span.setAttribute("http.route", url.split("?")[0]);
           }
@@ -81,43 +129,8 @@ const sdk = new NodeSDK({
       "@opentelemetry/instrumentation-pg": {
         enabled: true,
         requireParentSpan: false,
-        // Agregar información de la query
         requestHook: (span, queryConfig) => {
-          if (queryConfig && typeof queryConfig === "object") {
-            const text = (queryConfig as any).text || "";
-            if (text) {
-              const upperText = text.trim().toUpperCase();
-
-              // Solo tracear INSERT, UPDATE, DELETE, ALTER, DROP, CREATE
-              if (
-                !upperText.startsWith("INSERT") &&
-                !upperText.startsWith("UPDATE") &&
-                !upperText.startsWith("DELETE") &&
-                !upperText.startsWith("ALTER") &&
-                !upperText.startsWith("DROP") &&
-                !upperText.startsWith("CREATE")
-              ) {
-                // Marcar span para no enviarlo
-                span.setAttribute("otel.skip", true);
-                return;
-              }
-
-              // Limitar longitud de queries muy largas
-              span.setAttribute(
-                "db.statement",
-                text.length > 500 ? text.substring(0, 500) + "..." : text
-              );
-
-              // Agregar tipo de operación
-              if (upperText.startsWith("INSERT")) {
-                span.setAttribute("db.operation", "INSERT");
-              } else if (upperText.startsWith("UPDATE")) {
-                span.setAttribute("db.operation", "UPDATE");
-              } else if (upperText.startsWith("DELETE")) {
-                span.setAttribute("db.operation", "DELETE");
-              }
-            }
-          }
+          annotateDatabaseSpan(span, queryConfig);
         },
       },
       // Express - habilitado

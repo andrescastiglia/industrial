@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import type { PoolClient } from "pg";
 
 import { pool } from "@/lib/database";
 import { calculateMaterialConsumption } from "@/lib/production-calculations";
@@ -23,6 +24,10 @@ import { normalizeOrdenProduccionEstado } from "@/lib/business-constants";
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
+type OrdenActual = {
+  producto_id: number;
+  cantidad_a_producir: number;
+};
 
 function normalizeOrdenRow<T extends Record<string, any>>(row: T): T {
   return {
@@ -39,10 +44,136 @@ function normalizeOrdenRow<T extends Record<string, any>>(row: T): T {
   };
 }
 
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
+function shouldRecalculateConsumos(
+  ordenData: Record<string, any>,
+  ordenActual: OrdenActual
+): boolean {
+  return (
+    (!!ordenData.producto_id &&
+      ordenData.producto_id !== ordenActual.producto_id) ||
+    (!!ordenData.cantidad_a_producir &&
+      ordenData.cantidad_a_producir !== ordenActual.cantidad_a_producir)
+  );
+}
+
+async function recalculateOrdenConsumos(
+  client: PoolClient,
+  ordenId: number,
+  productoId: number,
+  cantidad: number
 ) {
+  await client.query(
+    "DELETE FROM Consumo_Materia_Prima_Produccion WHERE orden_produccion_id = $1",
+    [ordenId]
+  );
+
+  const consumosCalculados = await calculateMaterialConsumption(
+    productoId,
+    cantidad
+  );
+
+  if (consumosCalculados.length === 0) {
+    throw new BusinessError(
+      "El producto no tiene componentes configurados para calcular consumos"
+    );
+  }
+
+  for (const consumo of consumosCalculados) {
+    await client.query(
+      `
+      INSERT INTO Consumo_Materia_Prima_Produccion (
+        orden_produccion_id,
+        materia_prima_id,
+        cantidad_requerida,
+        cantidad_usada,
+        merma_calculada,
+        fecha_registro
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+    `,
+      [
+        ordenId,
+        consumo.materia_prima_id,
+        consumo.cantidad_total,
+        0,
+        0,
+        new Date(),
+      ]
+    );
+  }
+}
+
+async function updateOrdenProduccionRecord(
+  client: PoolClient,
+  id: number,
+  ordenData: Record<string, any>
+) {
+  await client.query("BEGIN");
+
+  try {
+    const ordenActualResult = await client.query(
+      `
+      SELECT producto_id, cantidad_a_producir
+      FROM Ordenes_Produccion
+      WHERE orden_produccion_id = $1
+    `,
+      [id]
+    );
+
+    if (ordenActualResult.rows.length === 0) {
+      throw new NotFoundError("Orden");
+    }
+
+    const ordenActual = ordenActualResult.rows[0];
+    const result = await client.query(
+      `
+      UPDATE Ordenes_Produccion SET
+        orden_venta_id = COALESCE($1, orden_venta_id),
+        producto_id = COALESCE($2, producto_id),
+        cantidad_a_producir = COALESCE($3, cantidad_a_producir),
+        fecha_inicio = $4,
+        fecha_fin_estimada = $5,
+        fecha_fin_real = $6,
+        estado = COALESCE($7, estado)
+      WHERE orden_produccion_id = $8
+      RETURNING *
+    `,
+      [
+        ordenData.orden_venta_id || null,
+        ordenData.producto_id || null,
+        ordenData.cantidad_a_producir || null,
+        ordenData.fecha_inicio || null,
+        ordenData.fecha_fin_estimada || null,
+        ordenData.fecha_fin_real || null,
+        ordenData.estado || null,
+        id,
+      ]
+    );
+
+    const ordenActualizada = result.rows[0];
+    const shouldRecalculate = shouldRecalculateConsumos(ordenData, ordenActual);
+
+    if (shouldRecalculate) {
+      await recalculateOrdenConsumos(
+        client,
+        id,
+        ordenActualizada.producto_id,
+        ordenActualizada.cantidad_a_producir
+      );
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      ordenActualizada,
+      shouldRecalculate,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   return handleApiError(async () => {
     const auth = authenticateApiRequest(request);
@@ -153,10 +284,7 @@ export async function GET(
   }, request);
 }
 
-export async function PUT(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   return handleApiError(async () => {
     const auth = authenticateApiRequest(request);
@@ -191,97 +319,8 @@ export async function PUT(
     const client = await pool.connect();
 
     try {
-      await client.query("BEGIN");
-
-      const ordenActualResult = await client.query(
-        `
-        SELECT producto_id, cantidad_a_producir
-        FROM Ordenes_Produccion
-        WHERE orden_produccion_id = $1
-      `,
-        [id]
-      );
-
-      if (ordenActualResult.rows.length === 0) {
-        throw new NotFoundError("Orden");
-      }
-
-      const ordenActual = ordenActualResult.rows[0];
-      const result = await client.query(
-        `
-        UPDATE Ordenes_Produccion SET
-          orden_venta_id = COALESCE($1, orden_venta_id),
-          producto_id = COALESCE($2, producto_id),
-          cantidad_a_producir = COALESCE($3, cantidad_a_producir),
-          fecha_inicio = $4,
-          fecha_fin_estimada = $5,
-          fecha_fin_real = $6,
-          estado = COALESCE($7, estado)
-        WHERE orden_produccion_id = $8
-        RETURNING *
-      `,
-        [
-          ordenData.orden_venta_id || null,
-          ordenData.producto_id || null,
-          ordenData.cantidad_a_producir || null,
-          ordenData.fecha_inicio || null,
-          ordenData.fecha_fin_estimada || null,
-          ordenData.fecha_fin_real || null,
-          ordenData.estado || null,
-          id,
-        ]
-      );
-
-      const ordenActualizada = result.rows[0];
-
-      const shouldRecalculate =
-        (!!ordenData.producto_id &&
-          ordenData.producto_id !== ordenActual.producto_id) ||
-        (!!ordenData.cantidad_a_producir &&
-          ordenData.cantidad_a_producir !== ordenActual.cantidad_a_producir);
-
-      if (shouldRecalculate) {
-        await client.query(
-          "DELETE FROM Consumo_Materia_Prima_Produccion WHERE orden_produccion_id = $1",
-          [id]
-        );
-
-        const consumosCalculados = await calculateMaterialConsumption(
-          ordenActualizada.producto_id,
-          ordenActualizada.cantidad_a_producir
-        );
-
-        if (consumosCalculados.length === 0) {
-          throw new BusinessError(
-            "El producto no tiene componentes configurados para calcular consumos"
-          );
-        }
-
-        for (const consumo of consumosCalculados) {
-          await client.query(
-            `
-            INSERT INTO Consumo_Materia_Prima_Produccion (
-              orden_produccion_id,
-              materia_prima_id,
-              cantidad_requerida,
-              cantidad_usada,
-              merma_calculada,
-              fecha_registro
-            ) VALUES ($1, $2, $3, $4, $5, $6)
-          `,
-            [
-              id,
-              consumo.materia_prima_id,
-              consumo.cantidad_total,
-              0,
-              0,
-              new Date(),
-            ]
-          );
-        }
-      }
-
-      await client.query("COMMIT");
+      const { ordenActualizada, shouldRecalculate } =
+        await updateOrdenProduccionRecord(client, id, ordenData);
 
       return NextResponse.json(
         normalizeOrdenRow({
@@ -292,7 +331,6 @@ export async function PUT(
         })
       );
     } catch (error) {
-      await client.query("ROLLBACK");
       if (error instanceof NotFoundError || error instanceof BusinessError) {
         throw error;
       }
@@ -303,10 +341,7 @@ export async function PUT(
   }, request);
 }
 
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   return handleApiError(async () => {
     const auth = authenticateApiRequest(request);

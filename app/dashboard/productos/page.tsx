@@ -35,6 +35,23 @@ import { ComponenteProducto, MateriaPrima, Producto } from "@/lib/database";
 import { useProductos } from "@/hooks/useProductos";
 import { useMateriaPrima } from "@/hooks/useMateriaPrima";
 
+type EditableComponente = ComponenteProducto & {
+  tempId: string;
+};
+
+function createEditableComponente(
+  componente: ComponenteProducto
+): EditableComponente {
+  return {
+    ...componente,
+    tempId: crypto.randomUUID(),
+  };
+}
+
+function parseCantidadNecesaria(value: string | number) {
+  return typeof value === "string" ? Number.parseFloat(value) : value;
+}
+
 export default function ProductosPage() {
   const {
     productos,
@@ -76,7 +93,7 @@ export default function ProductosPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   // Estados para gestión de componentes
-  const [componentesTemp, setComponentesTemp] = useState<ComponenteProducto[]>(
+  const [componentesTemp, setComponentesTemp] = useState<EditableComponente[]>(
     []
   );
 
@@ -128,12 +145,9 @@ export default function ProductosPage() {
     }
 
     const componenteData: ComponenteProducto[] = componentesTemp.map(
-      (comp) => ({
+      ({ tempId, ...comp }) => ({
         ...comp,
-        cantidad_necesaria:
-          typeof comp.cantidad_necesaria === "string"
-            ? Number.parseFloat(comp.cantidad_necesaria)
-            : comp.cantidad_necesaria,
+        cantidad_necesaria: parseCantidadNecesaria(comp.cantidad_necesaria),
       })
     );
 
@@ -158,7 +172,9 @@ export default function ProductosPage() {
 
   const handleEdit = (producto: Producto) => {
     setEditingProducto(producto);
-    setComponentesTemp(producto.componentes || []);
+    setComponentesTemp(
+      (producto.componentes || []).map(createEditableComponente)
+    );
     setIsDialogOpen(true);
   };
 
@@ -184,7 +200,7 @@ export default function ProductosPage() {
 
   const agregarComponente = () => {
     if (!materiaPrimaLoaded) return;
-    const nuevoComponente: ComponenteProducto = {
+    const nuevoComponente = createEditableComponente({
       producto_id: editingProducto?.producto_id || 0,
       materia_prima_id: materiaPrimaDisponible[0].materia_prima_id,
       cantidad_necesaria: 1,
@@ -193,7 +209,7 @@ export default function ProductosPage() {
       unidad_medida: materiaPrimaDisponible[0].unidad_medida,
       stock_actual: materiaPrimaDisponible[0].stock_actual,
       referencia_proveedor: materiaPrimaDisponible[0].referencia_proveedor,
-    };
+    });
     setComponentesTemp([...componentesTemp, nuevoComponente]);
   };
 
@@ -221,14 +237,14 @@ export default function ProductosPage() {
         };
       }
     } else {
+      let normalizedValue = valor;
+      if (campo === "cantidad_necesaria") {
+        normalizedValue = parseCantidadNecesaria(valor);
+      }
+
       nuevosComponentes[index] = {
         ...nuevosComponentes[index],
-        [campo]:
-          campo === "cantidad_necesaria"
-            ? typeof valor === "string"
-              ? Number.parseFloat(valor)
-              : valor
-            : valor,
+        [campo]: normalizedValue,
       };
     }
 
@@ -422,7 +438,7 @@ export default function ProductosPage() {
 
                   <div className="space-y-3">
                     {componentesTemp.map((componente, index) => (
-                      <Card key={index} className="p-4">
+                      <Card key={componente.tempId} className="p-4">
                         <div className="grid grid-cols-12 gap-3 items-end">
                           <div className="col-span-4">
                             <Label className="text-sm">Materia Prima</Label>
@@ -809,8 +825,11 @@ export default function ProductosPage() {
                   Lista de Componentes
                 </Label>
                 <div className="mt-2 space-y-2">
-                  {viewingProducto.componentes?.map((componente, index) => (
-                    <div key={index} className="p-3 bg-gray-50 rounded border">
+                  {viewingProducto.componentes?.map((componente) => (
+                    <div
+                      key={`${componente.materia_prima_id}-${componente.angulo_corte}-${componente.referencia_proveedor}`}
+                      className="p-3 bg-gray-50 rounded border"
+                    >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="font-medium">

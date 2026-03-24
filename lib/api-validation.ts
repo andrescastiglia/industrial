@@ -4,7 +4,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { z, ZodError, ZodSchema } from "zod";
+import { ZodError, ZodSchema } from "zod";
+import {
+  containsPotentialSqlInjection,
+  stripHtmlTags,
+} from "@/lib/security-utils";
 
 // ==================== Types ====================
 
@@ -18,6 +22,12 @@ export interface ValidationResult<T = any> {
   data?: T;
   errors?: ValidationError[];
 }
+
+type RequestValidationData<TBody, TQuery, TParams> = {
+  body?: TBody;
+  query?: TQuery;
+  params?: TParams;
+};
 
 // ==================== Error Formatting ====================
 
@@ -176,7 +186,7 @@ export function sanitizeString(input: string): string {
  * Sanitize HTML by stripping all tags
  */
 export function sanitizeHtml(input: string): string {
-  return input.replace(/<[^>]*>/g, "").trim();
+  return stripHtmlTags(input);
 }
 
 /**
@@ -222,41 +232,34 @@ export async function validateRequest<TBody = any, TQuery = any, TParams = any>(
   response?: NextResponse;
 }> {
   const errors: ValidationError[] = [];
-  const data: any = {};
+  const data: RequestValidationData<TBody, TQuery, TParams> = {};
 
-  // Validate body
   if (options.bodySchema) {
     const bodyResult = await validateRequestBody(request, options.bodySchema);
-    if (!bodyResult.success) {
-      errors.push(...(bodyResult.errors || []));
-    } else {
-      data.body = options.sanitize
-        ? sanitizeObject(bodyResult.data as any)
-        : bodyResult.data;
-    }
+    mergeValidationResult(bodyResult, errors, (validatedBody) => {
+      data.body = (
+        options.sanitize
+          ? sanitizeObject(validatedBody as Record<string, any>)
+          : validatedBody
+      ) as TBody;
+    });
   }
 
-  // Validate query params
   if (options.querySchema) {
     const queryResult = validateQueryParams(request, options.querySchema);
-    if (!queryResult.success) {
-      errors.push(...(queryResult.errors || []));
-    } else {
-      data.query = queryResult.data;
-    }
+    mergeValidationResult(queryResult, errors, (validatedQuery) => {
+      data.query = validatedQuery;
+    });
   }
 
-  // Validate path params
   if (options.paramsSchema && options.params) {
     const paramsResult = validatePathParams(
       options.params,
       options.paramsSchema
     );
-    if (!paramsResult.success) {
-      errors.push(...(paramsResult.errors || []));
-    } else {
-      data.params = paramsResult.data;
-    }
+    mergeValidationResult(paramsResult, errors, (validatedParams) => {
+      data.params = validatedParams;
+    });
   }
 
   // Return error response if validation failed
@@ -272,6 +275,21 @@ export async function validateRequest<TBody = any, TQuery = any, TParams = any>(
     success: true,
     data,
   };
+}
+
+function mergeValidationResult<T>(
+  result: ValidationResult<T>,
+  errors: ValidationError[],
+  onSuccess: (data: T) => void
+): void {
+  if (!result.success) {
+    errors.push(...(result.errors || []));
+    return;
+  }
+
+  if (result.data !== undefined) {
+    onSuccess(result.data);
+  }
 }
 
 // ==================== Validation Helpers ====================
@@ -355,15 +373,7 @@ export function hasMaxItems<T>(
  * Note: This is a basic check. Always use parameterized queries!
  */
 export function hasSqlInjectionPattern(input: string): boolean {
-  const sqlPatterns = [
-    /(\%27)|(\')|(\-\-)|(\%23)|(#)/i, // SQL comment
-    /((\%3D)|(=))[^\n]*((\%27)|(\')|(\-\-)|(\%3B)|(;))/i, // SQL injection
-    /\w*((\%27)|(\'))((\%6F)|o|(\%4F))((\%72)|r|(\%52))/i, // SQL injection 'or'
-    /((\%27)|(\'))union/i, // UNION injection
-    /exec(\s|\+)+(s|x)p\w+/i, // Stored procedure exec
-  ];
-
-  return sqlPatterns.some((pattern) => pattern.test(input));
+  return containsPotentialSqlInjection(input);
 }
 
 /**

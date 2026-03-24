@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { stripHtmlTags } from "@/lib/security-utils";
 
 // ==================== Common Patterns ====================
 
@@ -11,9 +12,8 @@ import { z } from "zod";
  * Email validation with proper RFC 5322 pattern
  */
 export const emailSchema = z
-  .string()
+  .email()
   .min(1, "El email es requerido")
-  .email("Formato de email inválido")
   .toLowerCase()
   .trim();
 
@@ -66,16 +66,14 @@ export const positiveIntSchema = z
  */
 export const positiveDecimalSchema = z
   .number()
-  .positive("Debe ser un número positivo")
-  .finite("Debe ser un número válido");
+  .positive("Debe ser un número positivo");
 
 /**
  * Non-negative decimal (allows 0)
  */
 export const nonNegativeDecimalSchema = z
   .number()
-  .nonnegative("No puede ser negativo")
-  .finite("Debe ser un número válido");
+  .nonnegative("No puede ser negativo");
 
 /**
  * Percentage validation (0-100)
@@ -83,8 +81,7 @@ export const nonNegativeDecimalSchema = z
 export const percentageSchema = z
   .number()
   .min(0, "El porcentaje no puede ser negativo")
-  .max(100, "El porcentaje no puede ser mayor a 100")
-  .finite("Debe ser un número válido");
+  .max(100, "El porcentaje no puede ser mayor a 100");
 
 /**
  * Date validation (ISO 8601 format or Date object)
@@ -110,7 +107,7 @@ export const pastDateSchema = z.coerce
 /**
  * UUID validation
  */
-export const uuidSchema = z.string().uuid("ID inválido");
+export const uuidSchema = z.uuid("ID inválido");
 
 /**
  * Non-empty string validation
@@ -150,7 +147,6 @@ export const optionalTextSchema = z.string().trim().optional();
  * URL validation
  */
 export const urlSchema = z
-  .string()
   .url("URL inválida")
   .trim()
   .optional()
@@ -200,7 +196,7 @@ export function sanitizeString(input: string): string {
  * Sanitize HTML by stripping all tags
  */
 export function sanitizeHtml(input: string): string {
-  return input.replace(/<[^>]*>/g, "").trim();
+  return stripHtmlTags(input);
 }
 
 // ==================== Validation Helpers ====================

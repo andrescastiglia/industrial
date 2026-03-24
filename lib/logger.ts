@@ -228,8 +228,12 @@ class Logger {
   ): void {
     const url = req.url || "";
     const method = req.method || "UNKNOWN";
-    const level =
-      statusCode >= 500 ? "error" : statusCode >= 400 ? "warn" : "info";
+    let level: "error" | "warn" | "info" = "info";
+    if (statusCode >= 500) {
+      level = "error";
+    } else if (statusCode >= 400) {
+      level = "warn";
+    }
 
     const logMessage = `${method} ${url} ${statusCode} - ${duration}ms`;
 

@@ -27,11 +27,46 @@ import { apiLogger, startTimer } from "@/lib/logger";
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
+type ClienteUpdateField = {
+  key: string;
+  column: string;
+  normalize?: (value: unknown) => unknown;
+};
 
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
-) {
+const clienteUpdateFields: ClienteUpdateField[] = [
+  { key: "nombre", column: "nombre" },
+  {
+    key: "contacto",
+    column: "contacto",
+    normalize: (value: unknown) => value || null,
+  },
+  { key: "direccion", column: "direccion" },
+  { key: "telefono", column: "telefono" },
+  { key: "email", column: "email" },
+];
+
+function buildClienteUpdateQuery(clienteData: Record<string, unknown>) {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  for (const field of clienteUpdateFields) {
+    const value = clienteData[field.key];
+    if (value === undefined) {
+      continue;
+    }
+
+    updates.push(`${field.column} = $${values.length + 1}`);
+    values.push(field.normalize ? field.normalize(value) : value);
+  }
+
+  return {
+    updates,
+    values,
+    paramIndex: values.length + 1,
+  };
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const timer = startTimer(`GET /api/clientes/${params.id}`, apiLogger);
 
@@ -120,10 +155,7 @@ export async function GET(
   }, request);
 }
 
-export async function PUT(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const timer = startTimer(`PUT /api/clientes/${params.id}`, apiLogger);
 
@@ -213,36 +245,9 @@ export async function PUT(
     const client = await pool.connect();
 
     try {
-      // Build dynamic update query
-      const updates: string[] = [];
-      const values: any[] = [];
-      let paramIndex = 1;
-
-      if (clienteData.nombre !== undefined) {
-        updates.push(`nombre = $${paramIndex}`);
-        values.push(clienteData.nombre);
-        paramIndex++;
-      }
-      if (clienteData.contacto !== undefined) {
-        updates.push(`contacto = $${paramIndex}`);
-        values.push(clienteData.contacto || null);
-        paramIndex++;
-      }
-      if (clienteData.direccion !== undefined) {
-        updates.push(`direccion = $${paramIndex}`);
-        values.push(clienteData.direccion);
-        paramIndex++;
-      }
-      if (clienteData.telefono !== undefined) {
-        updates.push(`telefono = $${paramIndex}`);
-        values.push(clienteData.telefono);
-        paramIndex++;
-      }
-      if (clienteData.email !== undefined) {
-        updates.push(`email = $${paramIndex}`);
-        values.push(clienteData.email);
-        paramIndex++;
-      }
+      const { updates, values, paramIndex } = buildClienteUpdateQuery(
+        clienteData as Record<string, unknown>
+      );
 
       if (updates.length === 0) {
         apiLogger.warn("No hay campos para actualizar", { clienteId: id });
@@ -252,12 +257,10 @@ export async function PUT(
         );
       }
 
-      values.push(id);
-
       const dbTimer = startTimer("Update cliente", apiLogger);
       const result = await client.query(
         `UPDATE Clientes SET ${updates.join(", ")} WHERE cliente_id = $${paramIndex} RETURNING *`,
-        values
+        [...values, id]
       );
       dbTimer.endDb();
 
@@ -295,10 +298,7 @@ export async function PUT(
   }, request);
 }
 
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const timer = startTimer(`DELETE /api/clientes/${params.id}`, apiLogger);
 

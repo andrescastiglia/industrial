@@ -11,7 +11,7 @@ export function useCompras() {
     try {
       setLoading(true);
       const data = await apiClient.getCompras();
-      setCompras(data as Compra[]);
+      setCompras(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -23,7 +23,7 @@ export function useCompras() {
   const createCompra = async (compraData: Compra) => {
     try {
       const newCompra = await apiClient.createCompra(compraData);
-      setCompras((prev) => [newCompra as Compra, ...prev]);
+      setCompras((prev) => [newCompra, ...prev]);
       return newCompra;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear compra");
@@ -36,7 +36,7 @@ export function useCompras() {
       const updatedCompra = await apiClient.updateCompra(id, compraData);
       setCompras((prev) =>
         prev.map((compra: Compra) =>
-          compra.compra_id === id ? (updatedCompra as Compra) : compra
+          compra.compra_id === id ? updatedCompra : compra
         )
       );
       return updatedCompra;

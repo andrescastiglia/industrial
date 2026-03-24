@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { UserRole, JWTPayload } from "@/lib/auth";
+import type { UserRole } from "@/lib/auth";
 import { setUserContext, clearUserContext } from "@/lib/otel-logger";
 
 export interface User {

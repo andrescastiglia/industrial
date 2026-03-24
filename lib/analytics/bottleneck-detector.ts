@@ -4,19 +4,16 @@
  */
 
 import { Pool } from "pg";
-import {
-  startOfMonth,
-  endOfMonth,
-  differenceInDays,
-  subMonths,
-} from "date-fns";
+import { startOfMonth, endOfMonth } from "date-fns";
+
+type ImpactLevel = "high" | "medium" | "low";
 
 // Tipos de datos
 export interface SlowStage {
   stageName: string;
   averageDuration: number; // Días
   ordersCount: number;
-  impactLevel: "high" | "medium" | "low";
+  impactLevel: ImpactLevel;
   suggestion: string;
 }
 
@@ -27,7 +24,7 @@ export interface ProblematicProduct {
   delayedOrders: number;
   totalOrders: number;
   delayRate: number; // Porcentaje
-  impactLevel: "high" | "medium" | "low";
+  impactLevel: ImpactLevel;
   issues: string[];
 }
 
@@ -38,7 +35,7 @@ export interface SlowSupplier {
   expectedDeliveryTime: number; // Días esperados
   delayDays: number; // Días de retraso promedio
   ordersCount: number;
-  impactLevel: "high" | "medium" | "low";
+  impactLevel: ImpactLevel;
   reliability: number; // Porcentaje (0-100)
 }
 
@@ -153,7 +150,7 @@ export class BottleneckDetector {
         const ordersCount = parseInt(row.orders_count);
 
         // Determinar nivel de impacto
-        let impactLevel: "high" | "medium" | "low";
+        let impactLevel: ImpactLevel;
         if (avgDuration > 7 && ordersCount > 5) {
           impactLevel = "high";
         } else if (avgDuration > 5 || ordersCount > 10) {

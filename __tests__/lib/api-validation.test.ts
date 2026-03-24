@@ -1,208 +1,448 @@
-/**
- * Tests para el módulo de validación API
- * Enfoque: Testeamos formatZodErrors con safeParse en lugar de try/catch
- */
+import type { NextRequest } from "next/server";
+import { z, ZodError, type ZodSchema } from "zod";
+import {
+  createValidationErrorResponse,
+  formatZodErrors,
+  hasMaxItems,
+  hasMinItems,
+  hasSqlInjectionPattern,
+  isDateInRange,
+  isInRange,
+  sanitizeHtml,
+  sanitizeObject,
+  sanitizeString,
+  validateAgainstSqlInjection,
+  validatePathParams,
+  validateQueryParams,
+  validateRequest,
+  validateRequestBody,
+} from "@/lib/api-validation";
 
-import { z, ZodError } from "zod";
-import { formatZodErrors } from "@/lib/api-validation";
+type RequestOptions = {
+  body?: unknown;
+  jsonError?: Error;
+  url?: string;
+};
+
+function createMockRequest(options: RequestOptions = {}): NextRequest {
+  const { body, jsonError, url = "http://localhost/api" } = options;
+
+  return {
+    url,
+    json: jsonError
+      ? jest.fn().mockRejectedValue(jsonError)
+      : jest.fn().mockResolvedValue(body),
+  } as unknown as NextRequest;
+}
 
 describe("api-validation.ts", () => {
   describe("formatZodErrors", () => {
-    it("should format single validation error", () => {
-      const schema = z.object({
-        email: z.string().email("Email inválido"),
-      });
-
-      const result = schema.safeParse({ email: "no-es-email" });
-
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted).toBeDefined();
-        expect(Array.isArray(formatted)).toBe(true);
-        expect(formatted.length).toBeGreaterThan(0);
-        expect(formatted[0]).toHaveProperty("field");
-        expect(formatted[0]).toHaveProperty("message");
-        expect(formatted[0].field).toBe("email");
-      } else {
-        fail("Validation should have failed");
-      }
-    });
-
-    it("should format multiple validation errors", () => {
-      const schema = z.object({
-        email: z.string().email(),
-        age: z.number().positive(),
-        name: z.string().min(3),
-      });
-
-      const result = schema.safeParse({
-        email: "invalido",
-        age: -5,
-        name: "ab",
-      });
-
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted.length).toBeGreaterThanOrEqual(3);
-
-        const fields = formatted.map((e) => e.field);
-        expect(fields).toContain("email");
-        expect(fields).toContain("age");
-        expect(fields).toContain("name");
-      }
-    });
-
-    it("should format nested field errors", () => {
-      const schema = z.object({
-        user: z.object({
-          name: z.string().min(3, "Nombre muy corto"),
-        }),
-      });
-
-      const result = schema.safeParse({ user: { name: "ab" } });
-
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted[0].field).toBe("user.name");
-        expect(formatted[0].message).toBe("Nombre muy corto");
-      }
-    });
-
-    it("should format deeply nested errors", () => {
+    it("formats nested Zod issues with path and message", () => {
       const schema = z.object({
         data: z.object({
           user: z.object({
-            email: z.string().email(),
+            email: z.string().email("Email invalido"),
           }),
         }),
       });
 
       const result = schema.safeParse({
-        data: { user: { email: "invalido" } },
+        data: { user: { email: "correo-malo" } },
       });
 
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
+      expect(result.success).toBe(false);
 
-        expect(formatted[0].field).toBe("data.user.email");
+      if (result.success) {
+        return;
       }
+
+      expect(formatZodErrors(result.error)).toEqual([
+        {
+          field: "data.user.email",
+          message: "Email invalido",
+        },
+      ]);
     });
 
-    it("should handle missing required fields", () => {
-      const schema = z.object({
-        required_field: z.string(),
-        another_field: z.number(),
+    it("returns an empty array for an empty ZodError", () => {
+      expect(formatZodErrors(new ZodError([]))).toEqual([]);
+    });
+  });
+
+  describe("createValidationErrorResponse", () => {
+    it("creates a standardized 400 response", async () => {
+      const errors = [{ field: "email", message: "Email invalido" }];
+      const response = createValidationErrorResponse(
+        errors,
+        "Payload invalido"
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        success: false,
+        error: "Payload invalido",
+        validation_errors: errors,
       });
+    });
+  });
 
-      const result = schema.safeParse({});
-
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted.length).toBe(2);
-        const fields = formatted.map((e) => e.field);
-        expect(fields).toContain("required_field");
-        expect(fields).toContain("another_field");
-      }
+  describe("validateRequestBody", () => {
+    const bodySchema = z.object({
+      name: z.string().min(2),
+      quantity: z.number().int().positive(),
     });
 
-    it("should preserve custom error messages", () => {
-      const schema = z.object({
-        price: z.number().positive("El precio debe ser positivo"),
+    it("returns parsed body data when the schema is valid", async () => {
+      const request = createMockRequest({
+        body: { name: "Marco", quantity: 3 },
       });
 
-      const result = schema.safeParse({ price: -10 });
-
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted[0].message).toBe("El precio debe ser positivo");
-        expect(formatted[0].field).toBe("price");
-      }
+      await expect(validateRequestBody(request, bodySchema)).resolves.toEqual({
+        success: true,
+        data: { name: "Marco", quantity: 3 },
+      });
     });
 
-    it("should handle array validation errors", () => {
-      const schema = z.object({
-        items: z.array(z.number()).min(1, "Array no puede estar vacío"),
+    it("returns formatted Zod errors when validation fails", async () => {
+      const request = createMockRequest({
+        body: { name: "M", quantity: 0 },
       });
 
-      const result = schema.safeParse({ items: [] });
-
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted[0].field).toBe("items");
-        expect(formatted[0].message).toContain("vacío");
-      }
+      await expect(validateRequestBody(request, bodySchema)).resolves.toEqual({
+        success: false,
+        errors: [
+          {
+            field: "name",
+            message: "Too small: expected string to have >=2 characters",
+          },
+          {
+            field: "quantity",
+            message: "Too small: expected number to be >0",
+          },
+        ],
+      });
     });
 
-    it("should handle enum errors", () => {
-      const schema = z.object({
-        role: z.enum(["admin", "user", "guest"]),
+    it("returns a parse error when request.json fails", async () => {
+      const request = createMockRequest({
+        jsonError: new Error("invalid json"),
       });
 
-      const result = schema.safeParse({ role: "superadmin" });
+      await expect(validateRequestBody(request, bodySchema)).resolves.toEqual({
+        success: false,
+        errors: [
+          {
+            field: "body",
+            message: "Error al parsear el cuerpo de la solicitud",
+          },
+        ],
+      });
+    });
+  });
 
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted[0].field).toBe("role");
-        expect(formatted[0].message).toBeDefined();
-      }
+  describe("validateQueryParams", () => {
+    const querySchema = z.object({
+      page: z.coerce.number().int().positive(),
+      search: z.string().min(1),
     });
 
-    it("should handle type mismatch", () => {
-      const schema = z.object({
-        count: z.number(),
-        active: z.boolean(),
+    it("parses and validates query string values", () => {
+      const request = createMockRequest({
+        url: "http://localhost/api?page=2&search=mesa",
       });
 
-      const result = schema.safeParse({
-        count: "not a number",
-        active: "not a boolean",
+      expect(validateQueryParams(request, querySchema)).toEqual({
+        success: true,
+        data: { page: 2, search: "mesa" },
       });
-
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
-
-        expect(formatted.length).toBe(2);
-        const fields = formatted.map((e) => e.field);
-        expect(fields).toContain("count");
-        expect(fields).toContain("active");
-      }
     });
 
-    it("should return empty array for empty ZodError", () => {
-      const error = new ZodError([]);
-      const formatted = formatZodErrors(error);
-
-      expect(Array.isArray(formatted)).toBe(true);
-      expect(formatted).toEqual([]);
-    });
-
-    it("should format all errors with field and message", () => {
-      const schema = z.object({
-        email: z.string().email(),
-        age: z.number().int().positive(),
+    it("returns Zod errors for invalid query values", () => {
+      const request = createMockRequest({
+        url: "http://localhost/api?page=0&search=",
       });
 
-      const result = schema.safeParse({ email: "bad", age: -1.5 });
+      expect(validateQueryParams(request, querySchema)).toEqual({
+        success: false,
+        errors: [
+          {
+            field: "page",
+            message: "Too small: expected number to be >0",
+          },
+          {
+            field: "search",
+            message: "Too small: expected string to have >=1 characters",
+          },
+        ],
+      });
+    });
 
-      if (!result.success) {
-        const formatted = formatZodErrors(result.error);
+    it("returns a generic query error when URL parsing fails", () => {
+      const request = createMockRequest({ url: "notaurl" });
 
-        formatted.forEach((err) => {
-          expect(err).toHaveProperty("field");
-          expect(err).toHaveProperty("message");
-          expect(typeof err.field).toBe("string");
-          expect(typeof err.message).toBe("string");
-          expect(err.field.length).toBeGreaterThan(0);
-          expect(err.message.length).toBeGreaterThan(0);
-        });
-      }
+      expect(validateQueryParams(request, querySchema)).toEqual({
+        success: false,
+        errors: [
+          {
+            field: "query",
+            message: "Error al validar parámetros de consulta",
+          },
+        ],
+      });
+    });
+  });
+
+  describe("validatePathParams", () => {
+    const paramsSchema = z.object({
+      id: z.string().regex(/^\d+$/),
+    });
+
+    it("returns parsed route params when the schema is valid", () => {
+      expect(validatePathParams({ id: "42" }, paramsSchema)).toEqual({
+        success: true,
+        data: { id: "42" },
+      });
+    });
+
+    it("returns formatted errors for invalid route params", () => {
+      const result = validatePathParams({ id: "abc" }, paramsSchema);
+
+      expect(result.success).toBe(false);
+      expect(result.errors?.[0].field).toBe("id");
+    });
+
+    it("returns a generic params error when schema parsing throws a non-Zod error", () => {
+      const explodingSchema = {
+        parse: jest.fn(() => {
+          throw new Error("boom");
+        }),
+      } as unknown as ZodSchema<{ id: string }>;
+
+      expect(validatePathParams({ id: "42" }, explodingSchema)).toEqual({
+        success: false,
+        errors: [
+          {
+            field: "params",
+            message: "Error al validar parámetros de ruta",
+          },
+        ],
+      });
+    });
+  });
+
+  describe("sanitizers", () => {
+    it("sanitizes strings by trimming, removing dangerous characters, and normalizing whitespace", () => {
+      expect(sanitizeString(`  "O'Reilly"   <admin>  `)).toBe("OReilly admin");
+    });
+
+    it("strips HTML tags from rich text", () => {
+      expect(sanitizeHtml(" <p>Hola <strong>mundo</strong></p> ")).toBe(
+        "Hola mundo"
+      );
+    });
+
+    it("recursively sanitizes nested object values without mutating the source object", () => {
+      const source = {
+        name: "  Ana   Lopez  ",
+        meta: {
+          comment: ` "<hola>" `,
+          visits: 3,
+          nested: null,
+        },
+      };
+
+      const sanitized = sanitizeObject(source);
+
+      expect(sanitized).toEqual({
+        name: "Ana Lopez",
+        meta: {
+          comment: "hola",
+          visits: 3,
+          nested: null,
+        },
+      });
+      expect(source.meta.comment).toBe(` "<hola>" `);
+    });
+  });
+
+  describe("validateRequest", () => {
+    it("validates body, query, and params together and sanitizes the body when requested", async () => {
+      const request = createMockRequest({
+        body: {
+          name: `  "Mesa"  `,
+          details: { note: "  entrega   rapida  " },
+        },
+        url: "http://localhost/api?page=4",
+      });
+
+      const result = await validateRequest(request, {
+        bodySchema: z.object({
+          name: z.string(),
+          details: z.object({ note: z.string() }),
+        }),
+        querySchema: z.object({
+          page: z.coerce.number().int().positive(),
+        }),
+        paramsSchema: z.object({
+          id: z.string().regex(/^\d+$/),
+        }),
+        params: { id: "99" },
+        sanitize: true,
+      });
+
+      expect(result).toEqual({
+        success: true,
+        data: {
+          body: {
+            name: "Mesa",
+            details: { note: "entrega rapida" },
+          },
+          query: { page: 4 },
+          params: { id: "99" },
+        },
+      });
+    });
+
+    it("preserves body values when sanitization is disabled", async () => {
+      const request = createMockRequest({
+        body: {
+          name: `  "Mesa"  `,
+        },
+      });
+
+      const result = await validateRequest(request, {
+        bodySchema: z.object({
+          name: z.string(),
+        }),
+        sanitize: false,
+      });
+
+      expect(result).toEqual({
+        success: true,
+        data: {
+          body: {
+            name: `  "Mesa"  `,
+          },
+        },
+      });
+    });
+
+    it("aggregates validation errors from all request sources", async () => {
+      const request = createMockRequest({
+        body: { name: "" },
+        url: "http://localhost/api?page=0",
+      });
+
+      const result = await validateRequest(request, {
+        bodySchema: z.object({
+          name: z.string().min(1),
+        }),
+        querySchema: z.object({
+          page: z.coerce.number().int().positive(),
+        }),
+        paramsSchema: z.object({
+          id: z.string().regex(/^\d+$/),
+        }),
+        params: { id: "sin-numero" },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toHaveLength(3);
+      expect(result.response?.status).toBe(400);
+      await expect(result.response?.json()).resolves.toEqual({
+        success: false,
+        error: "Errores de validación",
+        validation_errors: result.errors,
+      });
+    });
+
+    it("does not assign successful undefined payloads into the result object", async () => {
+      const request = createMockRequest({ body: undefined });
+
+      const result = await validateRequest(request, {
+        bodySchema: z.undefined(),
+      });
+
+      expect(result).toEqual({
+        success: true,
+        data: {},
+      });
+    });
+  });
+
+  describe("validation helpers", () => {
+    it("checks numeric ranges", () => {
+      expect(isInRange(5, 1, 10)).toEqual({ valid: true });
+      expect(isInRange(0, 1, 10)).toEqual({
+        valid: false,
+        error: "Valor debe ser al menos 1",
+      });
+      expect(isInRange(11, 1, 10)).toEqual({
+        valid: false,
+        error: "Valor no puede ser mayor a 10",
+      });
+    });
+
+    it("checks date ranges", () => {
+      const minDate = new Date("2026-01-10T00:00:00.000Z");
+      const maxDate = new Date("2026-01-20T00:00:00.000Z");
+
+      expect(
+        isDateInRange(new Date("2026-01-15T00:00:00.000Z"), minDate, maxDate)
+      ).toEqual({
+        valid: true,
+      });
+      expect(
+        isDateInRange(new Date("2026-01-05T00:00:00.000Z"), minDate, maxDate)
+      ).toEqual({
+        valid: false,
+        error: `Fecha debe ser posterior a ${minDate.toLocaleDateString()}`,
+      });
+      expect(
+        isDateInRange(new Date("2026-01-25T00:00:00.000Z"), minDate, maxDate)
+      ).toEqual({
+        valid: false,
+        error: `Fecha debe ser anterior a ${maxDate.toLocaleDateString()}`,
+      });
+    });
+
+    it("validates minimum and maximum array sizes", () => {
+      expect(hasMinItems([])).toEqual({
+        valid: false,
+        error: "Debe incluir al menos 1 elemento(s)",
+      });
+      expect(hasMinItems(["a"], 1)).toEqual({ valid: true });
+      expect(hasMinItems([], 2)).toEqual({
+        valid: false,
+        error: "Debe incluir al menos 2 elemento(s)",
+      });
+      expect(hasMaxItems(["a"], 2)).toEqual({ valid: true });
+      expect(hasMaxItems(["a", "b", "c"], 2)).toEqual({
+        valid: false,
+        error: "No puede incluir más de 2 elemento(s)",
+      });
+    });
+  });
+
+  describe("SQL injection guards", () => {
+    it.each([
+      "admin' --",
+      "1' union select * from users",
+      "name=foo';",
+      "exec xp_cmdshell",
+    ])("detects dangerous SQL patterns in %s", (input) => {
+      expect(hasSqlInjectionPattern(input)).toBe(true);
+      expect(validateAgainstSqlInjection(input)).toEqual({
+        valid: false,
+        error: "Entrada contiene patrones no permitidos",
+      });
+    });
+
+    it("allows safe input", () => {
+      expect(hasSqlInjectionPattern("pedido aprobado")).toBe(false);
+      expect(validateAgainstSqlInjection("pedido aprobado")).toEqual({
+        valid: true,
+      });
     });
   });
 });

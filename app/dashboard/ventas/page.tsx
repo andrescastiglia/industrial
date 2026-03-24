@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,10 +49,24 @@ import {
 } from "@/lib/business-constants";
 
 type VentaDetalleDraft = {
+  tempId: string;
   producto_id: number;
   cantidad: number;
   precio_unitario_venta: number;
 };
+
+type DateInputValue = Date | string | null | undefined;
+
+function createVentaDetalleDraft(
+  detalle?: Partial<Omit<VentaDetalleDraft, "tempId">>
+): VentaDetalleDraft {
+  return {
+    tempId: crypto.randomUUID(),
+    producto_id: detalle?.producto_id ?? 0,
+    cantidad: detalle?.cantidad ?? 1,
+    precio_unitario_venta: detalle?.precio_unitario_venta ?? 0,
+  };
+}
 
 function formatDate(value?: Date | string | null) {
   if (!value) return "Sin fecha";
@@ -73,8 +87,8 @@ function formatCurrency(value?: number | null) {
 }
 
 function calculateDiasRetraso(
-  fechaEstimada?: Date | string | null,
-  fechaReal?: Date | string | null
+  fechaEstimada?: DateInputValue,
+  fechaReal?: DateInputValue
 ) {
   if (!fechaEstimada) return 0;
 
@@ -199,11 +213,11 @@ export default function VentasPage() {
 
     setDetallesTemp((current) => [
       ...current,
-      {
+      createVentaDetalleDraft({
         producto_id: productos[0].producto_id,
         cantidad: 1,
         precio_unitario_venta: 0,
-      },
+      }),
     ]);
   };
 
@@ -224,7 +238,7 @@ export default function VentasPage() {
     );
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (detallesTemp.length === 0) {
@@ -272,11 +286,13 @@ export default function VentasPage() {
   const handleEdit = (orden: OrdenVenta) => {
     setEditingOrden(orden);
     setDetallesTemp(
-      (orden.detalle || []).map((detalle) => ({
-        producto_id: detalle.producto_id,
-        cantidad: detalle.cantidad,
-        precio_unitario_venta: Number(detalle.precio_unitario_venta || 0),
-      }))
+      (orden.detalle || []).map((detalle) =>
+        createVentaDetalleDraft({
+          producto_id: detalle.producto_id,
+          cantidad: detalle.cantidad,
+          precio_unitario_venta: Number(detalle.precio_unitario_venta || 0),
+        })
+      )
     );
     setError(null);
     setIsDialogOpen(true);
@@ -456,7 +472,10 @@ export default function VentasPage() {
                 </div>
 
                 {detallesTemp.map((detalle, index) => (
-                  <div key={index} className="p-4 border rounded-lg space-y-3">
+                  <div
+                    key={detalle.tempId}
+                    className="p-4 border rounded-lg space-y-3"
+                  >
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium">Linea #{index + 1}</h4>
                       <Button

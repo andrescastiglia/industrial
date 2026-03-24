@@ -11,6 +11,8 @@ import {
   subMonths,
 } from "date-fns";
 
+type KPIStatus = "excellent" | "good" | "warning" | "critical";
+
 // Tipos de datos
 export interface ProductionEfficiencyKPI {
   period: string;
@@ -18,7 +20,7 @@ export interface ProductionEfficiencyKPI {
   producedUnits: number;
   efficiencyRate: number; // Porcentaje (0-100+)
   trend: string; // '+X%' o '-X%'
-  status: "excellent" | "good" | "warning" | "critical";
+  status: KPIStatus;
 }
 
 export interface CapacityUtilizationKPI {
@@ -27,7 +29,7 @@ export interface CapacityUtilizationKPI {
   usedCapacity: number; // Horas utilizadas
   utilizationRate: number; // Porcentaje (0-100)
   trend: string;
-  status: "excellent" | "good" | "warning" | "critical";
+  status: KPIStatus;
 }
 
 export interface CostPerUnitKPI {
@@ -36,7 +38,7 @@ export interface CostPerUnitKPI {
   unitsProduced: number;
   costPerUnit: number; // COP por unidad
   trend: string;
-  status: "excellent" | "good" | "warning" | "critical";
+  status: KPIStatus;
 }
 
 export interface LeadTimeKPI {
@@ -45,7 +47,7 @@ export interface LeadTimeKPI {
   minLeadTime: number;
   maxLeadTime: number;
   trend: string;
-  status: "excellent" | "good" | "warning" | "critical";
+  status: KPIStatus;
 }
 
 export interface EfficiencyMetrics {
@@ -146,7 +148,7 @@ export class EfficiencyAnalyzer {
           : `${variation.toFixed(1)}%`;
 
       // Determinar estado
-      let status: "excellent" | "good" | "warning" | "critical";
+      let status: KPIStatus;
       if (efficiencyRate >= 95) status = "excellent";
       else if (efficiencyRate >= 85) status = "good";
       else if (efficiencyRate >= 70) status = "warning";
@@ -235,7 +237,7 @@ export class EfficiencyAnalyzer {
           : `${variation.toFixed(1)}%`;
 
       // Determinar estado
-      let status: "excellent" | "good" | "warning" | "critical";
+      let status: KPIStatus;
       if (utilizationRate >= 80 && utilizationRate <= 95)
         status = "excellent"; // Óptimo
       else if (utilizationRate >= 70 && utilizationRate < 100) status = "good";

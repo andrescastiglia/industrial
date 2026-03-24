@@ -22,6 +22,7 @@ export const VENTA_ESTADOS = [
 export type CompraEstado = (typeof COMPRA_ESTADOS)[number];
 export type OrdenProduccionEstado = (typeof ORDEN_PRODUCCION_ESTADOS)[number];
 export type VentaEstado = (typeof VENTA_ESTADOS)[number];
+type NormalizableValue = string | null | undefined;
 
 const COMPRA_ESTADO_LABELS: Record<CompraEstado, string> = {
   pendiente: "Pendiente",
@@ -45,7 +46,7 @@ const VENTA_ESTADO_LABELS: Record<VentaEstado, string> = {
   cancelada: "Cancelada",
 };
 
-function normalizeKey(value: string | null | undefined): string {
+function normalizeKey(value: NormalizableValue): string {
   return (value || "")
     .trim()
     .toLowerCase()
@@ -55,7 +56,7 @@ function normalizeKey(value: string | null | undefined): string {
 }
 
 export function normalizeCompraEstado(
-  value: string | null | undefined
+  value: NormalizableValue
 ): CompraEstado | undefined {
   const normalized = normalizeKey(value);
 
@@ -72,7 +73,7 @@ export function normalizeCompraEstado(
 }
 
 export function normalizeOrdenProduccionEstado(
-  value: string | null | undefined
+  value: NormalizableValue
 ): OrdenProduccionEstado | undefined {
   const normalized = normalizeKey(value);
 
@@ -94,7 +95,7 @@ export function normalizeOrdenProduccionEstado(
 }
 
 export function normalizeVentaEstado(
-  value: string | null | undefined
+  value: NormalizableValue
 ): VentaEstado | undefined {
   const normalized = normalizeKey(value);
 
@@ -116,13 +117,13 @@ export function normalizeVentaEstado(
   }
 }
 
-export function getCompraEstadoLabel(value: string | null | undefined): string {
+export function getCompraEstadoLabel(value: NormalizableValue): string {
   const normalized = normalizeCompraEstado(value);
   return normalized ? COMPRA_ESTADO_LABELS[normalized] : value || "Sin estado";
 }
 
 export function getOrdenProduccionEstadoLabel(
-  value: string | null | undefined
+  value: NormalizableValue
 ): string {
   const normalized = normalizeOrdenProduccionEstado(value);
   return normalized
@@ -130,7 +131,7 @@ export function getOrdenProduccionEstadoLabel(
     : value || "Sin estado";
 }
 
-export function getVentaEstadoLabel(value: string | null | undefined): string {
+export function getVentaEstadoLabel(value: NormalizableValue): string {
   const normalized = normalizeVentaEstado(value);
   return normalized ? VENTA_ESTADO_LABELS[normalized] : value || "Sin estado";
 }

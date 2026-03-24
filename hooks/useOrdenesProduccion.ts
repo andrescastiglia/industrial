@@ -11,7 +11,7 @@ export function useOrdenesProduccion() {
     try {
       setLoading(true);
       const data = await apiClient.getOrdenesProduccion();
-      setOrdenes(data as OrdenProduccion[]);
+      setOrdenes(data);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -23,7 +23,7 @@ export function useOrdenesProduccion() {
   const createOrden = async (ordenData: OrdenProduccion) => {
     try {
       const newOrden = await apiClient.createOrdenProduccion(ordenData);
-      setOrdenes((prev) => [newOrden as OrdenProduccion, ...prev]);
+      setOrdenes((prev) => [newOrden, ...prev]);
       return newOrden;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear orden");
@@ -36,9 +36,7 @@ export function useOrdenesProduccion() {
       const updatedOrden = await apiClient.updateOrdenProduccion(id, ordenData);
       setOrdenes((prev) =>
         prev.map((orden: OrdenProduccion) =>
-          orden.orden_produccion_id === id
-            ? (updatedOrden as OrdenProduccion)
-            : orden
+          orden.orden_produccion_id === id ? updatedOrden : orden
         )
       );
       return updatedOrden;

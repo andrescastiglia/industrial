@@ -28,7 +28,7 @@ export const ordenProduccionBaseSchema = z.object({
       const normalized = normalizeOrdenProduccionEstado(value);
       if (!normalized) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Estado de orden inválido",
         });
         return z.NEVER;

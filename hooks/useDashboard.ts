@@ -5,27 +5,29 @@
 import { useState, useEffect, useCallback } from "react";
 import { useApi } from "./useApi";
 
+type TrendDirection = "up" | "down" | "stable";
+
 export interface DashboardMetrics {
   produccion: {
     total: number;
     variacion_porcentaje: number;
-    tendencia: "up" | "down" | "stable";
+    tendencia: TrendDirection;
   };
   inventario: {
     total: number;
     variacion_porcentaje: number;
-    tendencia: "up" | "down" | "stable";
+    tendencia: TrendDirection;
     items_bajo_stock: number;
   };
   ventas: {
     total: number;
     variacion_porcentaje: number;
-    tendencia: "up" | "down" | "stable";
+    tendencia: TrendDirection;
   };
   costos: {
     total: number;
     variacion_porcentaje: number;
-    tendencia: "up" | "down" | "stable";
+    tendencia: TrendDirection;
   };
   ordenes: {
     vencidas: number;

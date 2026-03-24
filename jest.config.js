@@ -1,4 +1,5 @@
 const nextJest = require("next/jest");
+const coverageScope = require("./coverage-scope");
 
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
@@ -20,21 +21,7 @@ const customJestConfig = {
 
   // Coverage configuration
   collectCoverageFrom: [
-    "lib/auth.ts",
-    "lib/error-handler.ts",
-    "lib/api-validation.ts",
-    "lib/api-auth.ts",
-    "lib/permissions.ts",
-    "lib/api.ts",
-    "lib/database.ts",
-    "lib/business-constants.ts",
-    "lib/production-calculations.ts",
-    "lib/validation-helpers.ts",
-    "lib/utils.ts",
-    "lib/analytics/efficiency-analyzer.ts",
-    "app/api/compras/route.ts",
-    "app/api/ordenes-produccion/route.ts",
-    "app/api/ventas/route.ts",
+    ...coverageScope,
     "!**/*.d.ts",
     "!**/node_modules/**",
     "!**/.next/**",

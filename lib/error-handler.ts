@@ -295,88 +295,115 @@ export function isOperationalError(error: Error): boolean {
   return false;
 }
 
+function getConstraintField(detail?: string): string {
+  const match = detail?.match(/Key \(([^)]+)\)/);
+  return match ? match[1] : "campo";
+}
+
+function isDevelopmentEnvironment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+function createGenericDatabaseError(error: any): DatabaseError {
+  return new DatabaseError(
+    isDevelopmentEnvironment()
+      ? error.message
+      : "Error al procesar la operación de base de datos",
+    ERROR_CODES.DB_001,
+    isDevelopmentEnvironment()
+      ? { originalError: error.message, code: error.code }
+      : undefined
+  );
+}
+
+function getRequestPath(request?: Request): string | undefined {
+  return request ? new URL(request.url).pathname : undefined;
+}
+
+async function createNextErrorResponse<T>(
+  error: ApiError,
+  request?: Request
+): Promise<T> {
+  const { NextResponse } = await import("next/server");
+  const errorResponse = createErrorResponse(error, getRequestPath(request));
+
+  return NextResponse.json(errorResponse, {
+    status: error.statusCode,
+  }) as T;
+}
+
+function createSystemError(error: any): SystemError {
+  return new SystemError(
+    isDevelopmentEnvironment() ? error.message : "Error interno del servidor",
+    ERROR_CODES.SYS_001,
+    isDevelopmentEnvironment()
+      ? { originalError: error.message, stack: error.stack }
+      : undefined
+  );
+}
+
 /**
  * Convierte errores de base de datos PostgreSQL a ApiError
  */
 export function mapDatabaseError(error: any): ApiError {
-  // Error de constraint único
-  if (error.code === "23505") {
-    const match = error.detail?.match(/Key \(([^)]+)\)/);
-    const field = match ? match[1] : "campo";
-    return new ConflictError(
-      `El valor del campo ${field} ya existe`,
-      ERROR_CODES.VAL_006,
-      { field, constraint: error.constraint }
-    );
+  switch (error.code) {
+    case "23505": {
+      const field = getConstraintField(error.detail);
+      return new ConflictError(
+        `El valor del campo ${field} ya existe`,
+        ERROR_CODES.VAL_006,
+        { field, constraint: error.constraint }
+      );
+    }
+    case "23503": {
+      const field = getConstraintField(error.detail);
+      return new ValidationError(
+        `Referencia inválida en ${field}`,
+        ERROR_CODES.VAL_007,
+        { field, constraint: error.constraint }
+      );
+    }
+    case "23502":
+      return new ValidationError(
+        `El campo ${error.column || "campo"} es requerido`,
+        ERROR_CODES.VAL_002,
+        { field: error.column || "campo" }
+      );
+    case "23514":
+      return new ValidationError(
+        "Violación de regla de validación",
+        ERROR_CODES.VAL_005,
+        { constraint: error.constraint }
+      );
+    case "ECONNREFUSED":
+    case "ENOTFOUND":
+      return new DatabaseError(
+        "No se puede conectar a la base de datos",
+        ERROR_CODES.DB_001,
+        { originalError: error.message }
+      );
+    case "ETIMEDOUT":
+      return new DatabaseError(
+        "Timeout de consulta a base de datos",
+        ERROR_CODES.DB_003,
+        { originalError: error.message }
+      );
+    case "40P01":
+      return new DatabaseError(
+        "Conflicto de concurrencia detectado",
+        ERROR_CODES.DB_007,
+        { originalError: error.message }
+      );
+    default:
+      if (error.message?.includes("timeout")) {
+        return new DatabaseError(
+          "Timeout de consulta a base de datos",
+          ERROR_CODES.DB_003,
+          { originalError: error.message }
+        );
+      }
+      return createGenericDatabaseError(error);
   }
-
-  // Error de violación de FK
-  if (error.code === "23503") {
-    const match = error.detail?.match(/Key \(([^)]+)\)/);
-    const field = match ? match[1] : "campo";
-    return new ValidationError(
-      `Referencia inválida en ${field}`,
-      ERROR_CODES.VAL_007,
-      { field, constraint: error.constraint }
-    );
-  }
-
-  // Error de violación de not null
-  if (error.code === "23502") {
-    const field = error.column || "campo";
-    return new ValidationError(
-      `El campo ${field} es requerido`,
-      ERROR_CODES.VAL_002,
-      { field }
-    );
-  }
-
-  // Error de check constraint
-  if (error.code === "23514") {
-    return new ValidationError(
-      "Violación de regla de validación",
-      ERROR_CODES.VAL_005,
-      { constraint: error.constraint }
-    );
-  }
-
-  // Error de conexión
-  if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
-    return new DatabaseError(
-      "No se puede conectar a la base de datos",
-      ERROR_CODES.DB_001,
-      { originalError: error.message }
-    );
-  }
-
-  // Error de timeout
-  if (error.code === "ETIMEDOUT" || error.message?.includes("timeout")) {
-    return new DatabaseError(
-      "Timeout de consulta a base de datos",
-      ERROR_CODES.DB_003,
-      { originalError: error.message }
-    );
-  }
-
-  // Error de deadlock
-  if (error.code === "40P01") {
-    return new DatabaseError(
-      "Conflicto de concurrencia detectado",
-      ERROR_CODES.DB_007,
-      { originalError: error.message }
-    );
-  }
-
-  // Error genérico de base de datos
-  return new DatabaseError(
-    process.env.NODE_ENV === "development"
-      ? error.message
-      : "Error al procesar la operación de base de datos",
-    ERROR_CODES.DB_001,
-    process.env.NODE_ENV === "development"
-      ? { originalError: error.message, code: error.code }
-      : undefined
-  );
 }
 
 /**
@@ -400,54 +427,15 @@ export async function handleApiError<T>(
   try {
     return await handler();
   } catch (error: any) {
-    // Convertir errores de base de datos
     if (error.code && error.code.startsWith("2")) {
-      // Códigos PostgreSQL
-      const dbError = mapDatabaseError(error);
-      const errorResponse = createErrorResponse(
-        dbError,
-        request ? new URL(request.url).pathname : undefined
-      );
-
-      const { NextResponse } = await import("next/server");
-      return NextResponse.json(errorResponse, {
-        status: dbError.statusCode,
-      }) as T;
+      return createNextErrorResponse(mapDatabaseError(error), request);
     }
 
-    // Manejar ApiError
     if (error instanceof ApiError) {
-      const errorResponse = createErrorResponse(
-        error,
-        request ? new URL(request.url).pathname : undefined
-      );
-
-      const { NextResponse } = await import("next/server");
-      return NextResponse.json(errorResponse, {
-        status: error.statusCode,
-      }) as T;
+      return createNextErrorResponse(error, request);
     }
 
-    // Error desconocido
-    const systemError = new SystemError(
-      process.env.NODE_ENV === "development"
-        ? error.message
-        : "Error interno del servidor",
-      ERROR_CODES.SYS_001,
-      process.env.NODE_ENV === "development"
-        ? { originalError: error.message, stack: error.stack }
-        : undefined
-    );
-
-    const errorResponse = createErrorResponse(
-      systemError,
-      request ? new URL(request.url).pathname : undefined
-    );
-
-    const { NextResponse } = await import("next/server");
-    return NextResponse.json(errorResponse, {
-      status: 500,
-    }) as T;
+    return createNextErrorResponse(createSystemError(error), request);
   }
 }
 

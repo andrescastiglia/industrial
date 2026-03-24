@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,7 +67,7 @@ export default function ClientesPage() {
 
   // El hook useClientes ya carga los datos automáticamente
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 

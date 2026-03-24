@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, type SyntheticEvent } from "react";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +53,7 @@ export default function OperariosPage() {
       setLoading(true);
       try {
         const data = await apiClient.getOperarios();
-        setOperarios(data as Operario[]);
+        setOperarios(data);
       } catch {
         setError("Error al cargar operarios");
       } finally {
@@ -74,7 +74,7 @@ export default function OperariosPage() {
       operario.rol.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
@@ -94,7 +94,7 @@ export default function OperariosPage() {
         await apiClient.createOperario(operarioData);
       }
       const data = await apiClient.getOperarios();
-      setOperarios(data as Operario[]);
+      setOperarios(data);
     } catch {
       setError("Error al guardar operario");
     }
@@ -111,7 +111,7 @@ export default function OperariosPage() {
     try {
       await apiClient.deleteOperario(operario_id);
       const data = await apiClient.getOperarios();
-      setOperarios(data as Operario[]);
+      setOperarios(data);
     } catch {
       setError("Error al eliminar operario");
     }

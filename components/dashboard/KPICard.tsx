@@ -3,13 +3,7 @@
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ArrowUp,
-  ArrowDown,
-  Minus,
-  TrendingUp,
-  TrendingDown,
-} from "lucide-react";
+import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface KPICardProps {
